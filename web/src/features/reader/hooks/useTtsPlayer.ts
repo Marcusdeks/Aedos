@@ -104,7 +104,7 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
     audio.volume = prefs.volume;
   }, [prefs.rate, prefs.volume]);
 
-  // ── Efecto 3: recordar voz y velocidad para la próxima visita ──────────────
+  // ── Efecto 3: recordar voz, velocidad y volumen para la próxima visita ─────
   useEffect(() => savePreferences(prefs), [prefs]);
 
   // ── Efecto 4: la máquina de reproducción ───────────────────────────────────
