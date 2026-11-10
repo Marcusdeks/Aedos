@@ -1,0 +1,3 @@
+# Normaliza los finales de línea a LF en el repositorio, aunque trabajes en
+# Windows (CRLF). Evita diffs en los que "cambian" todas las líneas.
+* text=auto eol=lf

@@ -1,0 +1,15 @@
+# Cada subproyecto tiene además su propio .gitignore (web/.gitignore).
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Modelos de voz: pesan 60-120 MB cada uno, se descargan, no se versionan
+*.onnx
+*.onnx.json
+
+# Notas personales de aprendizaje (no forman parte del proyecto)
+APRENDIZAJE.md
