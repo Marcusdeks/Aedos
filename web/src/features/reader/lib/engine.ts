@@ -9,9 +9,17 @@
  */
 export interface TtsEngine {
   /** Genera el audio (WAV) de un texto corto, normalmente una frase. */
-  synthesize(text: string, voiceId: string, onProgress?: (p: DownloadProgress) => void): Promise<Blob>;
+  synthesize(text: string, voice: VoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob>;
   /** Libera recursos (hilos, procesos...). Se llama al desmontar el reproductor. */
   dispose(): void;
+}
+
+/** Lo mínimo que un motor necesita saber de una voz: qué modelo cargar y qué hablante usar. */
+export interface VoiceModel {
+  /** Nombre del modelo en Piper: `<locale>-<nombre>-<calidad>`, p. ej. "es_ES-davefx-medium". */
+  model: string;
+  /** Índice del hablante dentro del modelo (0 si el modelo solo tiene uno). */
+  speaker: number;
 }
 
 /** Progreso de descarga del modelo de voz (solo ocurre la primera vez). */

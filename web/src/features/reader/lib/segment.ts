@@ -11,6 +11,9 @@ export interface Segment {
 /** ¿Contiene al menos una letra o un número (en cualquier alfabeto)? */
 const HAS_WORDS = /[\p{L}\p{N}]/u;
 
+/** ¿Hay algo que leer? Distingue un texto real de uno vacío o de solo símbolos. */
+export const hasWords = (text: string) => HAS_WORDS.test(text);
+
 /**
  * Divide un texto en frases.
  *

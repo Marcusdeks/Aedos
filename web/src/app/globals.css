@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/*
+ * Tokens de diseño. En Tailwind 4 la configuración vive en CSS con `@theme`:
+ * cada variable crea utilidades. Por ejemplo, `--font-serif` habilita la clase
+ * `font-serif` y `--animate-aurora` la clase `animate-aurora`.
+ *
+ * `inline` hace que la utilidad use el valor de la variable directamente; hace
+ * falta aquí porque las fuentes las define next/font en <html> con otro nombre.
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-literata);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  --animate-equalizer: equalizer 0.9s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  /* Barras del ecualizador: crecen y decrecen desde abajo. */
+  @keyframes equalizer {
+    0%,
+    100% {
+      transform: scaleY(0.3);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+
+  /* Entrada suave de los bloques al cargar la página. */
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
   }
 }
 
+/*
+ * Utilidad propia (`@utility`): se usa como cualquier clase de Tailwind
+ * (`bg-aurora`). Tres degradados radiales que se desvanecen a transparente
+ * imitan manchas de luz desenfocadas sin usar `filter: blur`, que es caro.
+ */
+@utility bg-aurora {
+  background:
+    radial-gradient(60vmax 50vmax at 0% 0%, rgb(124 58 237 / 0.35), transparent 70%),
+    radial-gradient(50vmax 45vmax at 100% 35%, rgb(217 70 239 / 0.2), transparent 70%),
+    radial-gradient(55vmax 45vmax at 30% 100%, rgb(34 211 238 / 0.13), transparent 70%);
+}
+
+/*
+ * Tema oscuro único, decisión de diseño: los degradados y las luces de color
+ * lucen sobre fondo oscuro, y leer de noche no deslumbra. `color-scheme` avisa
+ * al navegador para que barras de scroll, <select> y formularios nativos
+ * también se pinten en oscuro.
+ */
+:root {
+  color-scheme: dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-zinc-950);
+  color: var(--color-zinc-100);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Accesibilidad: quien pide menos movimiento en su sistema no ve animaciones. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -28,20 +28,25 @@ const WASM_PATHS = {
 const reply = (msg: WorkerResponse) => postMessage(msg);
 
 let session: Promise<TtsSession> | null = null;
-let sessionVoice = "";
+let sessionModel = "";
 /** Petición en curso: a ella se le atribuye el progreso de descarga del modelo. */
 let activeId = -1;
 
-function getSession(voiceId: string): Promise<TtsSession> {
-  if (session && sessionVoice === voiceId) return session;
+/**
+ * Devuelve la sesión del modelo pedido, creándola solo si cambia el MODELO.
+ * Dos voces del mismo modelo (hablante masculino y femenino de "sharvard")
+ * comparten sesión: cambiar entre ellas no vuelve a cargar nada.
+ */
+function getSession(model: string): Promise<TtsSession> {
+  if (session && sessionModel === model) return session;
 
   // BUG de la librería: `TtsSession` es un singleton y, si ya existe, ignora el
   // nuevo `voiceId` (seguiría sonando la voz anterior). Lo reseteamos para
   // forzar una sesión nueva con el modelo correcto.
   TtsSession._instance = null;
-  sessionVoice = voiceId;
+  sessionModel = model;
   session = TtsSession.create({
-    voiceId,
+    voiceId: model,
     wasmPaths: WASM_PATHS,
     progress: ({ url, loaded, total }) => {
       // La librería también reporta el avance de la inferencia; solo nos
@@ -67,11 +72,13 @@ function getSession(voiceId: string): Promise<TtsSession> {
 let queue = Promise.resolve();
 
 onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
-  const { id, text, voiceId } = data;
+  const { id, text, model, speaker } = data;
   queue = queue.then(async () => {
     activeId = id;
     try {
-      const audio = await (await getSession(voiceId)).predict(text);
+      // `speaker` lo admite gracias a nuestro parche (web/patches/): la versión
+      // publicada de la librería tiene el hablante fijado a 0.
+      const audio = await (await getSession(model)).predict(text, speaker);
       reply({ id, type: "done", audio });
     } catch (err) {
       // try/catch DENTRO de la cola: un error no debe romper las peticiones siguientes.

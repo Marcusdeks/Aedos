@@ -10,6 +10,3 @@ Thumbs.db
 # Modelos de voz: pesan 60-120 MB cada uno, se descargan, no se versionan
 *.onnx
 *.onnx.json
-
-# Notas personales de aprendizaje (no forman parte del proyecto)
-APRENDIZAJE.md

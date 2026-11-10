@@ -7,30 +7,33 @@ interface Props {
   onSeek: (index: number) => void;
 }
 
-/** Texto en modo lectura: resalta la frase actual y permite saltar con un clic. */
+/**
+ * Texto en modo lectura: resalta la frase actual, atenúa las ya leídas y
+ * permite saltar a cualquier frase con un clic.
+ */
 export function ReadingView({ segments, current, onSeek }: Props) {
   const activeRef = useRef<HTMLSpanElement>(null);
 
-  // Mantener la frase actual visible en textos largos. `block: "nearest"` solo
-  // hace scroll si la frase se sale de la vista (no da saltos innecesarios).
+  // Mantener la frase actual visible. `block: "nearest"` solo hace scroll si
+  // la frase se sale de la vista (no da saltos innecesarios).
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [current]);
 
   // DELEGACIÓN DE EVENTOS: un único listener en el contenedor en vez de uno por
-  // frase. Con un texto de 2.000 frases son 2.000 funciones menos en memoria.
-  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
+  // frase. Con una página de 300 frases son 300 funciones menos en memoria.
+  const handleClick = (e: MouseEvent<HTMLElement>) => {
     const target = (e.target as HTMLElement).closest<HTMLElement>("[data-index]");
     if (target) onSeek(Number(target.dataset.index));
   };
 
   return (
-    <div
+    <article
       onClick={handleClick}
       // whitespace-pre-wrap respeta los saltos de línea y párrafos originales.
       // Sin scroll interno: en móvil, una caja con scroll propio dentro de una
       // página que también hace scroll es muy incómoda. Scrollea la página.
-      className="min-h-[60vh] rounded-2xl border border-zinc-200 bg-white p-4 text-lg leading-relaxed whitespace-pre-wrap sm:p-6 dark:border-zinc-800 dark:bg-zinc-900"
+      className="min-h-[50vh] rounded-3xl border border-white/10 bg-zinc-900/60 p-5 font-serif text-xl leading-loose whitespace-pre-wrap text-zinc-200 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-10"
     >
       {segments.map((s, i) => (
         <span
@@ -42,15 +45,19 @@ export function ReadingView({ segments, current, onSeek }: Props) {
           aria-current={i === current ? "true" : undefined}
           // scroll-my-40: margen que respeta scrollIntoView, para que la frase
           // no quede escondida detrás de la barra fija de abajo.
-          className={`cursor-pointer scroll-my-40 rounded transition-colors ${
+          // box-decoration-clone: si la frase ocupa varias líneas, cada línea
+          // lleva su propio fondo redondeado (en vez de un bloque cortado).
+          className={`cursor-pointer scroll-my-40 rounded-md box-decoration-clone transition-colors duration-300 ${
             i === current
-              ? "bg-amber-200 text-zinc-900 dark:bg-amber-400/30 dark:text-amber-50"
-              : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              ? "bg-linear-to-r from-violet-500/40 to-fuchsia-500/40 text-white"
+              : i < current
+                ? "text-zinc-500 hover:text-zinc-300"
+                : "hover:bg-white/5 hover:text-white"
           }`}
         >
           {s.raw}
         </span>
       ))}
-    </div>
+    </article>
   );
 }

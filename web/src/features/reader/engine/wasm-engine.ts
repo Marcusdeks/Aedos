@@ -1,4 +1,4 @@
-import type { DownloadProgress, TtsEngine } from "../lib/engine";
+import type { DownloadProgress, TtsEngine, VoiceModel } from "../lib/engine";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
 
 interface PendingRequest {
@@ -42,11 +42,11 @@ export class WasmTtsEngine implements TtsEngine {
     };
   }
 
-  synthesize(text: string, voiceId: string, onProgress?: (p: DownloadProgress) => void): Promise<Blob> {
+  synthesize(text: string, { model, speaker }: VoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob> {
     const id = this.#nextId++;
     return new Promise((resolve, reject) => {
       this.#pending.set(id, { resolve, reject, onProgress });
-      this.#worker.postMessage({ id, text, voiceId } satisfies WorkerRequest);
+      this.#worker.postMessage({ id, text, model, speaker } satisfies WorkerRequest);
     });
   }
 

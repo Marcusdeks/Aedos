@@ -1,4 +1,4 @@
-import type { DownloadProgress } from "../lib/engine";
+import type { DownloadProgress, VoiceModel } from "../lib/engine";
 
 /**
  * Mensajes entre el hilo principal y el Worker.
@@ -10,10 +10,9 @@ import type { DownloadProgress } from "../lib/engine";
  * forma asíncrona y puede haber varias peticiones en vuelo (frase actual + la
  * siguiente precargada).
  */
-export interface WorkerRequest {
+export interface WorkerRequest extends VoiceModel {
   id: number;
   text: string;
-  voiceId: string;
 }
 
 /**
