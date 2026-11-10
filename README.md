@@ -1,30 +1,31 @@
 # Aedos
 
-Lector de libros y textos con voces neuronales naturales, gratuito y privado. Sube un PDF o pega un texto y escúchalo en voz alta. La voz se genera **en el propio dispositivo** con [Piper](https://github.com/rhasspy/piper): sin servidores, sin cuotas y sin enviar tu texto a nadie.
+Lector de libros y textos con voces neuronales naturales, gratuito y privado. Sube un PDF o pega un texto y escúchalo en voz alta. La voz se genera **en el propio dispositivo** con modelos neuronales ([Supertonic 2](https://huggingface.co/Supertone/supertonic-2) y [Piper](https://github.com/rhasspy/piper)): sin servidores, sin cuotas y sin enviar tu texto a nadie.
 
 > 🚧 Proyecto en desarrollo activo.
 
 ## Funcionalidades
 
 - 📚 **Biblioteca local**: importa PDF (sin límite de páginas) o textos pegados. Todo se guarda en el navegador.
-- 🔖 **Guarda por dónde vas**: página y frase exactas, también la voz y la velocidad elegidas.
+- 🔖 **Guarda por dónde vas**: página y frase exactas, también la voz, la velocidad y el volumen.
 - 🧭 Navegación por páginas y por **capítulos** (leídos del índice del PDF).
-- 🗣️ 12 voces neuronales: 6 de español de España (3 femeninas y 3 masculinas) y 6 en inglés.
+- 🗣️ 16 voces en español: 10 de alta calidad (Supertonic 2) y 6 ligeras peninsulares (Piper).
+- 🚀 Usa la tarjeta gráfica (WebGPU) cuando está disponible.
 - ▶️ Lectura frase a frase con **resaltado**, salto con un clic y paso de página automático.
-- ⚡ Precarga de la frase siguiente (también entre páginas): sin silencios.
+- ⚡ Precarga de la frase siguiente (también entre páginas) y de la actual antes de pulsar ▶: sin silencios.
 - ⌨️ Atajos de teclado: <kbd>Espacio</kbd> reproducir/pausar, <kbd>←</kbd> <kbd>→</kbd> cambiar de página.
 - 📴 Funciona sin conexión una vez descargada la voz.
 - 📱 Diseño adaptado a móvil.
 
 ## Stack
 
-| Parte                        | Tecnología                                                       |
-| ---------------------------- | ---------------------------------------------------------------- |
-| Web                          | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 |
-| Síntesis de voz (web)        | Piper → WebAssembly + ONNX Runtime Web, en un Web Worker         |
-| PDF                          | pdf.js (Mozilla), con su propio Worker                           |
-| Almacenamiento               | IndexedDB (librería `idb`)                                       |
-| Escritorio _(en desarrollo)_ | Go + Wails, con Piper nativo                                     |
+| Parte                        | Tecnología                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| Web                          | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4                      |
+| Síntesis de voz (web)        | Supertonic 2 (Transformers.js, WebGPU/WASM) y Piper (WASM), cada uno en su Web Worker |
+| PDF                          | pdf.js (Mozilla), con su propio Worker                                                |
+| Almacenamiento               | IndexedDB (librería `idb`)                                                            |
+| Escritorio _(en desarrollo)_ | Go + Wails, con Piper nativo                                                          |
 
 ## Arquitectura
 
@@ -41,7 +42,7 @@ web/src/
         └── components/    Lector, navegación por páginas y barra de reproducción
 ```
 
-El reproductor depende de una interfaz (`TtsEngine`), no de una implementación concreta. La web usa Piper compilado a WebAssembly y la app de escritorio usará Piper nativo desde Go, **reutilizando la misma lógica de reproducción**.
+El reproductor depende de una interfaz (`TtsEngine`), no de una implementación concreta. La web usa modelos en WebAssembly/WebGPU (un Worker por modelo, creado solo cuando se usa) y la app de escritorio usará Piper nativo desde Go, **reutilizando la misma lógica de reproducción**.
 
 La librería de Piper para web lleva un pequeño parche (`web/patches/`, aplicado con `patch-package`) que permite elegir el hablante de los modelos con varias voces.
 
@@ -68,4 +69,5 @@ Otros scripts: `npm run build`, `npm run lint`, `npm run format`.
 
 ## Créditos
 
-Voces y motor: [Piper](https://github.com/rhasspy/piper) (Rhasspy). Cada modelo de voz tiene su propia licencia; consúltala en su ficha de [HuggingFace](https://huggingface.co/rhasspy/piper-voices).
+- [Supertonic 2](https://huggingface.co/Supertone/supertonic-2) (Supertone), licencia OpenRAIL-M, ejecutado con [Transformers.js](https://github.com/huggingface/transformers.js).
+- [Piper](https://github.com/rhasspy/piper) (Rhasspy). Cada modelo de voz tiene su propia licencia; consúltala en su ficha de [HuggingFace](https://huggingface.co/rhasspy/piper-voices).

@@ -7,7 +7,7 @@ export function SiteHeader() {
   return (
     <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5">
       <Link href="/" className="group flex items-center gap-3" aria-label="Aedos, ir a la biblioteca">
-        <span className="grid size-10 place-items-center rounded-xl bg-linear-to-br from-violet-500 via-fuchsia-500 to-amber-400 shadow-lg shadow-fuchsia-500/30 transition group-hover:scale-105 group-hover:rotate-3">
+        <span className="from-brand-1 via-brand-2 to-brand-3 shadow-brand-2/30 grid size-10 place-items-center rounded-xl bg-linear-to-br shadow-lg transition group-hover:scale-105 group-hover:rotate-3">
           <LogoMark />
         </span>
         <span className="text-xl font-semibold tracking-tight">Aedos</span>
@@ -17,7 +17,7 @@ export function SiteHeader() {
         href={REPO_URL}
         target="_blank"
         rel="noreferrer"
-        className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300 backdrop-blur transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+        className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-stone-300 backdrop-blur transition hover:border-white/20 hover:bg-white/10 hover:text-white"
       >
         <GitHubIcon />
         <span className="hidden sm:inline">Código</span>

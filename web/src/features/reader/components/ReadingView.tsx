@@ -33,7 +33,7 @@ export function ReadingView({ segments, current, onSeek }: Props) {
       // whitespace-pre-wrap respeta los saltos de línea y párrafos originales.
       // Sin scroll interno: en móvil, una caja con scroll propio dentro de una
       // página que también hace scroll es muy incómoda. Scrollea la página.
-      className="min-h-[50vh] rounded-3xl border border-white/10 bg-zinc-900/60 p-5 font-serif text-xl leading-loose whitespace-pre-wrap text-zinc-200 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-10"
+      className="min-h-[50vh] rounded-3xl border border-white/10 bg-stone-900/60 p-5 font-serif text-xl leading-loose whitespace-pre-wrap text-stone-200 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-10"
     >
       {segments.map((s, i) => (
         <span
@@ -49,9 +49,9 @@ export function ReadingView({ segments, current, onSeek }: Props) {
           // lleva su propio fondo redondeado (en vez de un bloque cortado).
           className={`cursor-pointer scroll-my-40 rounded-md box-decoration-clone transition-colors duration-300 ${
             i === current
-              ? "bg-linear-to-r from-violet-500/40 to-fuchsia-500/40 text-white"
+              ? "from-brand-2/35 to-brand-3/35 bg-linear-to-r text-white"
               : i < current
-                ? "text-zinc-500 hover:text-zinc-300"
+                ? "text-stone-500 hover:text-stone-300"
                 : "hover:bg-white/5 hover:text-white"
           }`}
         >

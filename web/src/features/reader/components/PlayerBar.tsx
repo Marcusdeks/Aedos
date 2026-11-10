@@ -1,9 +1,9 @@
 import { Equalizer } from "@/components/Equalizer";
 import type { TtsPlayer } from "../hooks/useTtsPlayer";
-import { RATE_RANGE } from "../lib/preferences";
-import { LANGUAGE_LABEL, VOICES, type Voice, type VoiceId } from "../lib/voices";
+import { RATE_RANGE, VOLUME_RANGE } from "../lib/preferences";
+import { ENGINE_LABEL, VOICES, type Voice, type VoiceId } from "../lib/voices";
 
-const LANGUAGES = Object.keys(LANGUAGE_LABEL) as Voice["language"][];
+const ENGINES = Object.keys(ENGINE_LABEL) as Voice["engine"][];
 
 interface Props {
   player: TtsPlayer;
@@ -11,15 +11,15 @@ interface Props {
   progress: number;
 }
 
-/** Barra de controles: play/pausa, stop, estado, voz, velocidad y progreso del libro. */
+/** Barra de controles: play/pausa, stop, estado, voz, velocidad, volumen y progreso del libro. */
 export function PlayerBar({ player, progress }: Props) {
-  const { status, buffering, toggle, stop, voiceId, setVoiceId, rate, setRate, segments } = player;
+  const { status, buffering, toggle, stop, voiceId, setVoiceId, rate, setRate, volume, setVolume, segments } = player;
   const isPlaying = status === "playing";
 
   return (
     // `sticky bottom-3`: la barra se queda pegada abajo al hacer scroll, al
     // alcance del pulgar, como en cualquier reproductor.
-    <div className="sticky bottom-3 z-20 overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/75 shadow-2xl shadow-violet-950/50 backdrop-blur-xl">
+    <div className="sticky bottom-3 z-20 overflow-hidden rounded-3xl border border-white/10 bg-stone-900/75 shadow-2xl shadow-black/50 backdrop-blur-xl">
       <div
         role="progressbar"
         aria-label="Progreso del libro"
@@ -27,7 +27,7 @@ export function PlayerBar({ player, progress }: Props) {
         className="h-1 bg-white/5"
       >
         <div
-          className="h-full bg-linear-to-r from-violet-500 via-fuchsia-500 to-amber-400 transition-[width] duration-700"
+          className="from-brand-1 via-brand-2 to-brand-3 h-full bg-linear-to-r transition-[width] duration-700"
           style={{ width: `${progress * 100}%` }}
         />
       </div>
@@ -35,7 +35,7 @@ export function PlayerBar({ player, progress }: Props) {
       {/*
         Dos filas con flex-wrap:
           [▶] [■] [≋] ........ estado
-          [voz] [velocidad]            ← `w-full` fuerza la 2ª línea
+          [voz] [velocidad] [volumen]  ← `w-full` fuerza la 2ª línea
         Los ajustes van en su propia fila también en escritorio: el lector mide
         como mucho 768px (buena anchura para leer) y en una sola fila no cabían.
       */}
@@ -47,10 +47,10 @@ export function PlayerBar({ player, progress }: Props) {
           // El texto accesible cambia con el estado: un lector de pantalla
           // anuncia "Pausar" o "Reproducir", no un icono mudo.
           aria-label={isPlaying ? "Pausar" : "Reproducir"}
-          className="relative grid size-14 place-items-center rounded-full bg-linear-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30 transition hover:scale-105 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-400 active:scale-95 disabled:opacity-40"
+          className="from-brand-2 to-brand-3 shadow-brand-2/30 focus-visible:outline-brand-2 relative grid size-14 place-items-center rounded-full bg-linear-to-br text-white shadow-lg transition hover:scale-105 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-95 disabled:opacity-40"
         >
           {/* Onda que "late" mientras suena: refuerza visualmente el estado. */}
-          {isPlaying && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-fuchsia-500/30" />}
+          {isPlaying && <span aria-hidden className="bg-brand-2/30 absolute inset-0 animate-ping rounded-full" />}
           {isPlaying ? <PauseIcon /> : <PlayIcon />}
         </button>
 
@@ -59,36 +59,35 @@ export function PlayerBar({ player, progress }: Props) {
           onClick={stop}
           disabled={status === "stopped"}
           aria-label="Detener"
-          className="grid size-10 place-items-center rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+          className="grid size-10 place-items-center rounded-full text-stone-300 transition hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <StopIcon />
         </button>
 
         {buffering ? (
-          <span
-            aria-hidden
-            className="size-5 animate-spin rounded-full border-2 border-white/15 border-t-fuchsia-400"
-          />
+          <span aria-hidden className="border-t-brand-2 size-5 animate-spin rounded-full border-2 border-white/15" />
         ) : (
           <Equalizer active={isPlaying} className="h-6" />
         )}
 
         <StatusText player={player} />
 
-        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6">
+        <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-2">
           <label className="flex min-w-0 items-center gap-2 text-sm">
-            <span className="text-zinc-400">Voz</span>
+            <span className="text-stone-400">Voz</span>
             <select
               value={voiceId}
               // El valor de un <select> llega como string: lo estrechamos a VoiceId,
               // seguro porque las <option> salen del mismo catálogo.
               onChange={(e) => setVoiceId(e.target.value as VoiceId)}
-              className="min-w-0 rounded-xl border border-white/10 bg-zinc-900 px-3 py-2"
+              // Ancho fijo: si no, el <select> mide lo que su opción más larga
+              // y empuja velocidad y volumen a otra fila.
+              className="w-52 min-w-0 rounded-xl border border-white/10 bg-stone-900 px-3 py-2"
             >
-              {/* <optgroup> agrupa las voces por idioma dentro del desplegable. */}
-              {LANGUAGES.map((language) => (
-                <optgroup key={language} label={LANGUAGE_LABEL[language]}>
-                  {VOICES.filter((v) => v.language === language).map((v) => (
+              {/* <optgroup> agrupa las voces por familia (calidad) dentro del desplegable. */}
+              {ENGINES.map((engine) => (
+                <optgroup key={engine} label={ENGINE_LABEL[engine]}>
+                  {VOICES.filter((v) => v.engine === engine).map((v) => (
                     <option key={v.id} value={v.id}>
                       {voiceLabel(v)}
                     </option>
@@ -98,31 +97,60 @@ export function PlayerBar({ player, progress }: Props) {
             </select>
           </label>
 
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-zinc-400">Velocidad</span>
-            <input
-              type="range"
-              min={RATE_RANGE.min}
-              max={RATE_RANGE.max}
-              step={RATE_RANGE.step}
-              value={rate}
-              // `valueAsNumber` evita el `Number(e.target.value)` manual.
-              onChange={(e) => setRate(e.target.valueAsNumber)}
-              className="w-24 accent-fuchsia-500"
-            />
-            <output className="w-10 tabular-nums">{rate.toFixed(2)}×</output>
-          </label>
+          <RangeControl
+            label="Velocidad"
+            range={RATE_RANGE}
+            value={rate}
+            onChange={setRate}
+            format={(v) => `${v.toFixed(2)}×`}
+          />
+          <RangeControl
+            label="Volumen"
+            range={VOLUME_RANGE}
+            value={volume}
+            onChange={setVolume}
+            format={(v) => `${Math.round(v * 100)} %`}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-/** "Sharvard · Mujer", "Amy · Mujer · EE. UU.", "Carlfm · Hombre · calidad baja"... */
-function voiceLabel({ name, gender, accent, quality }: Voice): string {
+interface RangeControlProps {
+  label: string;
+  range: { min: number; max: number; step: number };
+  value: number;
+  onChange: (value: number) => void;
+  /** Cómo mostrar el valor al lado del control ("1.25×", "80 %"...). */
+  format: (value: number) => string;
+}
+
+/**
+ * Control deslizante con etiqueta y valor visible. Velocidad y volumen
+ * comparten el mismo marcado: un componente en vez de copiarlo dos veces.
+ */
+function RangeControl({ label, range, value, onChange, format }: RangeControlProps) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="text-stone-400">{label}</span>
+      <input
+        type="range"
+        {...range}
+        value={value}
+        // `valueAsNumber` evita el `Number(e.target.value)` manual.
+        onChange={(e) => onChange(e.target.valueAsNumber)}
+        className="accent-brand-2 w-20"
+      />
+      <output className="w-12 tabular-nums">{format(value)}</output>
+    </label>
+  );
+}
+
+/** "Supertonic F1 · Mujer", "Carlfm · Hombre · calidad baja"... */
+function voiceLabel({ name, gender, quality }: Voice): string {
   const parts = [name, gender === "female" ? "Mujer" : "Hombre"];
-  if (accent) parts.push(accent);
-  if (quality !== "medium") parts.push("calidad baja");
+  if (quality === "low") parts.push("calidad baja");
   return parts.join(" · ");
 }
 
@@ -140,7 +168,7 @@ function StatusText({ player }: { player: TtsPlayer }) {
     // ml-auto empuja el estado al extremo derecho de la primera fila.
     <p
       aria-live="polite"
-      className={`ml-auto text-right text-sm tabular-nums ${error ? "text-red-300" : "text-zinc-400"}`}
+      className={`ml-auto text-right text-sm tabular-nums ${error ? "text-red-300" : "text-stone-400"}`}
     >
       {message}
     </p>

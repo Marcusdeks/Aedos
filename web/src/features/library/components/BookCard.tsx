@@ -21,7 +21,7 @@ export function BookCard({ book, onDelete }: Props) {
     <li className="group relative">
       <Link
         href={`/libro/${id}`}
-        className="flex h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-violet-950/60"
+        className="flex h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07] hover:shadow-2xl hover:shadow-black/60"
       >
         <div
           className="relative flex aspect-[16/9] items-end overflow-hidden p-5"
@@ -38,7 +38,7 @@ export function BookCard({ book, onDelete }: Props) {
 
         <div className="flex flex-1 flex-col gap-3 p-5">
           <h3 className="line-clamp-2 font-semibold">{title}</h3>
-          <p className="mt-auto text-sm text-zinc-400">
+          <p className="mt-auto text-sm text-stone-400">
             {kind === "pdf" ? `Página ${position.page + 1} de ${pageCount}` : "Texto pegado"}
             {chapters.length > 0 && ` · ${chapters.length} capítulos`}
           </p>
@@ -50,7 +50,7 @@ export function BookCard({ book, onDelete }: Props) {
               className="h-1.5 overflow-hidden rounded-full bg-white/10"
             >
               <div
-                className="h-full rounded-full bg-linear-to-r from-violet-400 to-fuchsia-400"
+                className="from-brand-1 to-brand-2 h-full rounded-full bg-linear-to-r"
                 style={{ width: `${progress * 100}%` }}
               />
             </div>

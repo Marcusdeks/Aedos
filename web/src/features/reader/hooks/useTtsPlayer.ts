@@ -91,15 +91,18 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
     };
   }, [createEngine]);
 
-  // ── Efecto 2: sincronizar la velocidad con el <audio> ──────────────────────
+  // ── Efecto 2: sincronizar velocidad y volumen con el <audio> ───────────────
   // `playbackRate` se reinicia al cambiar de `src`; `defaultPlaybackRate` no.
   // Por eso fijamos ambas. El navegador mantiene el tono (preservesPitch).
+  // `volume` sí se conserva entre audios. (En iPhone, Safari lo ignora: allí
+  // el volumen solo se controla con los botones físicos.)
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.defaultPlaybackRate = prefs.rate;
     audio.playbackRate = prefs.rate;
-  }, [prefs.rate]);
+    audio.volume = prefs.volume;
+  }, [prefs.rate, prefs.volume]);
 
   // ── Efecto 3: recordar voz y velocidad para la próxima visita ──────────────
   useEffect(() => savePreferences(prefs), [prefs]);
@@ -109,13 +112,24 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
     const audio = audioRef.current;
     const engine = engineRef.current;
     const cache = cacheRef.current;
-    if (!audio || !engine || !cache) return;
+    if (!audio || !engine || !cache || !current) return; // !current: página sin texto (p. ej. una ilustración)
+
+    const load = (segment: Segment) =>
+      cache.get(clipKey(voice, segment), () => engine.synthesize(segment.text, voice, setDownload));
 
     if (status !== "playing") {
       audio.pause();
+      // PRECARGA EN REPOSO: aunque no se esté reproduciendo, generamos ya la
+      // frase actual. La primera vez esto obliga a cargar el modelo (decenas de
+      // segundos), así que mejor empezar mientras el usuario mira la página que
+      // cuando pulse ▶. Solo la deja en la caché: no toca el <audio>.
+      // Si falla, no pasa nada: la caché olvida el fallo y se reintenta al pulsar ▶.
+      load(current).then(
+        () => setDownload(null),
+        () => setDownload(null),
+      );
       return;
     }
-    if (!current) return; // página sin texto (p. ej. una ilustración)
 
     const fail = (err: unknown) => {
       // AbortError = "play() interrumpido por pause()": es normal si el usuario
@@ -135,9 +149,6 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
     // ya, no dejarla sonando mientras se genera la nueva. Si venimos de
     // `onEnded`, el audio ya está parado y esto no hace nada.
     audio.pause();
-
-    const load = (segment: Segment) =>
-      cache.get(clipKey(voice, segment), () => engine.synthesize(segment.text, voice, setDownload));
 
     // `cancelled` evita una RACE CONDITION: si el usuario salta de frase o
     // cambia de voz mientras se sintetiza, la respuesta antigua llega tarde y
@@ -207,6 +218,8 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
     setVoiceId: (voiceId: VoiceId) => setPrefs((p) => ({ ...p, voiceId })),
     rate: prefs.rate,
     setRate: (rate: number) => setPrefs((p) => ({ ...p, rate })),
+    volume: prefs.volume,
+    setVolume: (volume: number) => setPrefs((p) => ({ ...p, volume })),
     toggle,
     stop,
     seek,

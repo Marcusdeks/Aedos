@@ -4,11 +4,18 @@ import { DEFAULT_VOICE, isVoiceId, type VoiceId } from "./voices";
 export interface Preferences {
   voiceId: VoiceId;
   rate: number;
+  /** De 0 (silencio) a 1 (volumen máximo del dispositivo). */
+  volume: number;
 }
 
 export const RATE_RANGE = { min: 0.5, max: 2, step: 0.25 } as const;
+export const VOLUME_RANGE = { min: 0, max: 1, step: 0.05 } as const;
 
 const STORAGE_KEY = "aedos:preferences";
+
+/** ¿Es un número dentro del rango? Sirve para validar lo que venga de localStorage. */
+const inRange = (value: unknown, { min, max }: { min: number; max: number }): value is number =>
+  typeof value === "number" && value >= min && value <= max;
 
 /**
  * Lee las preferencias de localStorage.
@@ -24,10 +31,10 @@ export function loadPreferences(): Preferences {
   } catch {
     // JSON corrupto o localStorage bloqueado (modo privado estricto): valores por defecto.
   }
-  const { rate } = saved;
   return {
     voiceId: isVoiceId(saved.voiceId) ? saved.voiceId : DEFAULT_VOICE,
-    rate: typeof rate === "number" && rate >= RATE_RANGE.min && rate <= RATE_RANGE.max ? rate : 1,
+    rate: inRange(saved.rate, RATE_RANGE) ? saved.rate : 1,
+    volume: inRange(saved.volume, VOLUME_RANGE) ? saved.volume : 1,
   };
 }
 

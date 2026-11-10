@@ -20,7 +20,7 @@ export function Library() {
           <h2 id="library-title" className="text-2xl font-semibold tracking-tight">
             Tu biblioteca
           </h2>
-          {books && books.length > 0 && <span className="text-sm text-zinc-400">{books.length} en total</span>}
+          {books && books.length > 0 && <span className="text-sm text-stone-400">{books.length} en total</span>}
         </div>
 
         {error && <p className="text-sm text-red-300">{error}</p>}
@@ -28,7 +28,7 @@ export function Library() {
         {books === null ? (
           <SkeletonGrid />
         ) : books.length === 0 ? (
-          <p className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-zinc-400">
+          <p className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-stone-400">
             Aún no tienes libros. Sube un PDF o prueba con el ejemplo para empezar.
           </p>
         ) : (

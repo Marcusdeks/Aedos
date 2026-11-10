@@ -61,19 +61,19 @@ export function ImportPanel() {
         onDrop={handleDrop}
         className={`group relative flex min-h-56 cursor-pointer flex-col items-center justify-center gap-3 overflow-hidden rounded-3xl border-2 border-dashed p-8 text-center transition lg:col-span-2 ${
           dragging
-            ? "scale-[1.01] border-fuchsia-400 bg-fuchsia-500/10"
-            : "border-white/15 bg-white/[0.03] hover:border-violet-400/60 hover:bg-white/[0.06]"
+            ? "border-brand-2 bg-brand-2/10 scale-[1.01]"
+            : "hover:border-brand-2/60 border-white/15 bg-white/[0.03] hover:bg-white/[0.06]"
         } ${working ? "pointer-events-none" : ""}`}
       >
         {working ? (
           <ImportProgress done={state.done} total={state.total} />
         ) : (
           <>
-            <span className="grid size-14 place-items-center rounded-2xl bg-linear-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-fuchsia-500/30 transition group-hover:-translate-y-1 group-hover:rotate-3">
+            <span className="from-brand-2 to-brand-3 shadow-brand-2/30 grid size-14 place-items-center rounded-2xl bg-linear-to-br shadow-lg transition group-hover:-translate-y-1 group-hover:rotate-3">
               <UploadIcon />
             </span>
             <span className="text-lg font-semibold">Arrastra un PDF aquí</span>
-            <span className="text-sm text-zinc-400">o haz clic para elegirlo · sin límite de páginas</span>
+            <span className="text-sm text-stone-400">o haz clic para elegirlo · sin límite de páginas</span>
           </>
         )}
         <input
@@ -96,10 +96,10 @@ export function ImportPanel() {
           type="button"
           disabled={working}
           onClick={() => void run(() => importText(SAMPLE.text, SAMPLE.title))}
-          className="flex flex-1 flex-col items-start justify-center gap-1 rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-left transition hover:border-amber-300/40 hover:bg-white/[0.06] disabled:opacity-50"
+          className="hover:border-brand-3/40 flex flex-1 flex-col items-start justify-center gap-1 rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-left transition hover:bg-white/[0.06] disabled:opacity-50"
         >
           <span className="font-semibold">Probar con un ejemplo</span>
-          <span className="text-sm text-zinc-400">El comienzo del Quijote, para escucharlo en segundos.</span>
+          <span className="text-sm text-stone-400">El comienzo del Quijote, para escucharlo en segundos.</span>
         </button>
       </div>
 
@@ -122,12 +122,12 @@ function ImportProgress({ done, total }: { done: number; total: number }) {
       <span className="font-semibold">{total > 0 ? "Extrayendo el texto…" : "Preparando…"}</span>
       <div className="h-2 overflow-hidden rounded-full bg-white/10">
         <div
-          className="h-full rounded-full bg-linear-to-r from-violet-500 via-fuchsia-500 to-amber-400 transition-[width]"
+          className="from-brand-1 via-brand-2 to-brand-3 h-full rounded-full bg-linear-to-r transition-[width]"
           style={{ width: `${percent}%` }}
         />
       </div>
       {total > 0 && (
-        <span className="text-sm text-zinc-400 tabular-nums">
+        <span className="text-sm text-stone-400 tabular-nums">
           Página {done} de {total}
         </span>
       )}

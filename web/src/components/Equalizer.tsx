@@ -15,7 +15,7 @@ export function Equalizer({ active = true, className = "" }: { active?: boolean;
         <span
           key={i}
           style={{ height: `${height}%`, animationDelay: `${i * -0.18}s` }}
-          className={`w-[3px] origin-bottom rounded-full bg-linear-to-t from-violet-400 to-fuchsia-300 ${
+          className={`from-brand-2 to-brand-1 w-[3px] origin-bottom rounded-full bg-linear-to-t ${
             active ? "animate-equalizer" : "scale-y-30"
           }`}
         />

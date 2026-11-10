@@ -78,7 +78,7 @@ export function BookPlayer({ book, pages }: Props) {
   return (
     <div className="animate-fade-up flex flex-col gap-5">
       <header className="flex flex-col gap-2 pt-2">
-        <Link href="/" className="w-fit text-sm text-zinc-400 transition hover:text-white">
+        <Link href="/" className="w-fit text-sm text-stone-400 transition hover:text-white">
           ← Biblioteca
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{book.title}</h1>
@@ -91,12 +91,12 @@ export function BookPlayer({ book, pages }: Props) {
       {player.segments.length > 0 ? (
         <ReadingView segments={player.segments} current={player.index} onSeek={player.seek} />
       ) : (
-        <p className="grid min-h-[40vh] place-items-center rounded-3xl border border-dashed border-white/10 p-8 text-center text-zinc-400">
+        <p className="grid min-h-[40vh] place-items-center rounded-3xl border border-dashed border-white/10 p-8 text-center text-stone-400">
           Esta página no tiene texto (puede ser una imagen o una página en blanco).
         </p>
       )}
 
-      <p className="hidden text-center text-xs text-zinc-500 sm:block">
+      <p className="hidden text-center text-xs text-stone-500 sm:block">
         Atajos: <Kbd>Espacio</Kbd> reproducir o pausar · <Kbd>←</Kbd> <Kbd>→</Kbd> cambiar de página · clic en una frase
         para saltar a ella
       </p>
@@ -110,5 +110,5 @@ export function BookPlayer({ book, pages }: Props) {
 }
 
 const Kbd = ({ children }: { children: string }) => (
-  <kbd className="rounded-md border border-white/15 bg-white/5 px-1.5 py-0.5 font-sans text-zinc-300">{children}</kbd>
+  <kbd className="rounded-md border border-white/15 bg-white/5 px-1.5 py-0.5 font-sans text-stone-300">{children}</kbd>
 );

@@ -34,7 +34,7 @@ export function PageNav({ page, pageCount, chapters, onChange }: Props) {
         de página, la key nueva hace que React lo recree con el valor correcto.
         Así el usuario puede escribir libremente sin que cada tecla mueva la página.
       */}
-      <form key={page} onSubmit={handleSubmit} className="flex items-center gap-2 text-sm text-zinc-300">
+      <form key={page} onSubmit={handleSubmit} className="flex items-center gap-2 text-sm text-stone-300">
         <label className="flex items-center gap-2">
           Página
           <input
@@ -46,7 +46,7 @@ export function PageNav({ page, pageCount, chapters, onChange }: Props) {
             defaultValue={page + 1}
             // Al salir del campo también se aplica (además de con Enter).
             onBlur={(e) => e.currentTarget.form?.requestSubmit()}
-            className="w-16 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-center tabular-nums outline-none focus:border-violet-400"
+            className="focus:border-brand-2 w-16 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-center tabular-nums outline-none"
           />
         </label>
         <span className="tabular-nums">de {pageCount}</span>
@@ -61,7 +61,7 @@ export function PageNav({ page, pageCount, chapters, onChange }: Props) {
           value={chapterIndex}
           onChange={(e) => onChange(chapters[Number(e.target.value)].page)}
           aria-label="Capítulo"
-          className="w-full min-w-0 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm sm:ml-auto sm:w-64"
+          className="w-full min-w-0 rounded-lg border border-white/10 bg-stone-900 px-3 py-2 text-sm sm:ml-auto sm:w-64"
         >
           {/* Antes del primer capítulo (portada, prólogo...) no hay ninguno seleccionado. */}
           {chapterIndex === -1 && <option value={-1}>Capítulos…</option>}
@@ -93,7 +93,7 @@ function NavButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid size-9 place-items-center rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+      className="grid size-9 place-items-center rounded-full text-stone-300 transition hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
     >
       <svg
         viewBox="0 0 24 24"

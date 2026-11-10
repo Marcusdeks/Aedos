@@ -12,6 +12,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@huggingface/transformers": "4.3.2",
     "@mintplex-labs/piper-tts-web": "1.0.5",
     "idb": "8.0.4",
     "next": "16.4.6",

@@ -39,7 +39,7 @@ export function BookReader({ id }: { id: string }) {
     return (
       <div className="mt-16 flex flex-col items-center gap-4 text-center">
         <p className="text-xl font-semibold">Este libro no está en tu biblioteca</p>
-        <p className="text-zinc-400">
+        <p className="text-stone-400">
           Los libros se guardan en este navegador. Quizá lo borraste o lo subiste en otro dispositivo.
         </p>
         <Link href="/" className="rounded-full bg-white/10 px-5 py-2.5 transition hover:bg-white/15">

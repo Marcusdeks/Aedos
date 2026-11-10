@@ -1,5 +1,5 @@
 ﻿/**
- * Web Worker de síntesis de voz.
+ * Web Worker de síntesis con Piper (voces ligeras).
  *
  * La inferencia de la red neuronal (ONNX) es puro cálculo y tarda cientos de
  * milisegundos por frase. En el hilo principal congelaría la interfaz (botones
@@ -11,7 +11,8 @@
  */
 import { INFERENCE_PROGRESS_URL, TtsSession } from "@mintplex-labs/piper-tts-web";
 import { env } from "onnxruntime-web/wasm";
-import type { WorkerRequest, WorkerResponse } from "./protocol";
+import type { PiperVoiceModel } from "../lib/engine";
+import { createQueue, type WorkerRequest, type WorkerResponse } from "./protocol";
 
 // La librería descarga por defecto los .wasm de ONNX Runtime 1.18 desde una CDN,
 // pero el JavaScript instalado es otra versión: si no coinciden, la inferencia
@@ -26,6 +27,7 @@ const WASM_PATHS = {
 
 /** Respuesta tipada: `postMessage` a secas aceptaría cualquier objeto. */
 const reply = (msg: WorkerResponse) => postMessage(msg);
+const enqueue = createQueue(reply);
 
 let session: Promise<TtsSession> | null = null;
 let sessionModel = "";
@@ -63,26 +65,12 @@ function getSession(model: string): Promise<TtsSession> {
   return session;
 }
 
-/**
- * Cola de ejecución: cada petición espera a que termine la anterior.
- * Encadenar promesas es la forma más simple de serializar trabajo asíncrono
- * sin librerías. Evita, por ejemplo, descargar el mismo modelo dos veces si
- * llegan dos peticiones seguidas.
- */
-let queue = Promise.resolve();
-
-onmessage = ({ data }: MessageEvent<WorkerRequest>) => {
-  const { id, text, model, speaker } = data;
-  queue = queue.then(async () => {
+onmessage = ({ data }: MessageEvent<WorkerRequest<PiperVoiceModel>>) => {
+  const { id, text, voice } = data;
+  enqueue(id, async () => {
     activeId = id;
-    try {
-      // `speaker` lo admite gracias a nuestro parche (web/patches/): la versión
-      // publicada de la librería tiene el hablante fijado a 0.
-      const audio = await (await getSession(model)).predict(text, speaker);
-      reply({ id, type: "done", audio });
-    } catch (err) {
-      // try/catch DENTRO de la cola: un error no debe romper las peticiones siguientes.
-      reply({ id, type: "error", message: err instanceof Error ? err.message : String(err) });
-    }
+    // `speaker` lo admite gracias a nuestro parche (web/patches/): la versión
+    // publicada de la librería tiene el hablante fijado a 0.
+    return (await getSession(voice.model)).predict(text, voice.speaker);
   });
 };
