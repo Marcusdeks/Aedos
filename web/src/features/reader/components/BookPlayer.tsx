@@ -5,12 +5,14 @@ import { WasmTtsEngine } from "../engine/wasm-engine";
 import { useTtsPlayer } from "../hooks/useTtsPlayer";
 import { hasWords } from "../lib/segment";
 import { PageNav } from "./PageNav";
+import { PdfThumbnails } from "./PdfThumbnails";
 import { PlayerBar } from "./PlayerBar";
 import { ReadingView } from "./ReadingView";
 
-// Fuera del componente → misma referencia en cada render. Si la definiéramos
-// dentro, el efecto del hook vería una función "nueva" y recrearía el Worker.
-const createEngine = () => new WasmTtsEngine();
+// UN motor para toda la pestaña, fuera del componente: sobrevive al cambiar de
+// libro o volver a la biblioteca, así el modelo de voz no se prepara otra vez.
+// (Crearlo aquí es barato: los Workers no se crean hasta la primera frase.)
+const engine = new WasmTtsEngine();
 
 /** Siguiente página con texto a partir de `from` (las de solo imágenes se saltan). -1 si no queda ninguna. */
 const nextReadablePage = (pages: string[], from: number) => pages.findIndex((p, i) => i >= from && hasWords(p));
@@ -34,7 +36,7 @@ export function BookPlayer({ book, pages }: Props) {
 
   const player = useTtsPlayer({
     text: pages[page],
-    createEngine,
+    engine,
     startIndex: book.position.sentence,
     // Al terminar la página, pasa sola a la siguiente y sigue leyendo.
     next: nextPage === -1 ? undefined : { text: pages[nextPage], go: () => setPage(nextPage) },
@@ -56,10 +58,14 @@ export function BookPlayer({ book, pages }: Props) {
   // reciente (page, player...) pero que no es dependencia del efecto. Así el
   // listener se registra UNA vez, en vez de quitarse y ponerse en cada render.
   const handleKey = useEffectEvent((e: KeyboardEvent) => {
-    // Si el foco está en un control, la tecla es suya (Espacio pulsa el botón,
-    // las flechas mueven el control de velocidad...).
-    if (e.target instanceof Element && e.target.closest("input, textarea, select, button, a")) return;
+    // Si el foco está en un campo o desplegable, la tecla es suya (las flechas
+    // mueven el control de velocidad, cambian de opción...).
+    const target = e.target instanceof Element ? e.target : null;
+    if (target?.closest("input, textarea, select")) return;
     if (e.code === "Space") {
+      // En un botón o enlace, Espacio lo pulsa. Las flechas no hacen nada en
+      // ellos, así que sí cambian de página (p. ej. tras clicar una miniatura).
+      if (target?.closest("button, a")) return;
       e.preventDefault(); // si no, Espacio también hace scroll
       player.toggle();
     } else if (e.key === "ArrowRight") goToPage(page + 1);
@@ -75,34 +81,52 @@ export function BookPlayer({ book, pages }: Props) {
   // Progreso total del libro (0-1): páginas completas + la parte leída de la actual.
   const progress = (page + (player.index + 1) / Math.max(player.segments.length, 1)) / pages.length;
 
+  const isPdf = book.kind === "pdf";
+
   return (
-    <div className="animate-fade-up flex flex-col gap-5">
-      <header className="flex flex-col gap-2 pt-2">
-        <Link href="/" className="w-fit text-sm text-stone-400 transition hover:text-white">
-          ← Biblioteca
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{book.title}</h1>
-      </header>
+    // En pantallas grandes, los PDF se muestran en dos columnas: el texto y, a
+    // su derecha, las miniaturas de las páginas. El texto mantiene un ancho
+    // cómodo de lectura; los textos pegados (sin PDF) van en una sola columna.
+    <div
+      className={`animate-fade-up mx-auto w-full max-w-3xl ${isPdf ? "lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_9.5rem] lg:gap-8" : ""}`}
+    >
+      <div className="flex min-w-0 flex-col gap-5">
+        <header className="flex flex-col gap-2 pt-2">
+          <Link href="/" className="w-fit text-sm text-stone-400 transition hover:text-white">
+            ← Biblioteca
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{book.title}</h1>
+        </header>
 
-      {pages.length > 1 && (
-        <PageNav page={page} pageCount={pages.length} chapters={book.chapters} onChange={goToPage} />
-      )}
+        {pages.length > 1 && (
+          <PageNav page={page} pageCount={pages.length} chapters={book.chapters} onChange={goToPage} />
+        )}
 
-      {player.segments.length > 0 ? (
-        <ReadingView segments={player.segments} current={player.index} onSeek={player.seek} />
-      ) : (
-        <p className="grid min-h-[40vh] place-items-center rounded-3xl border border-dashed border-white/10 p-8 text-center text-stone-400">
-          Esta página no tiene texto (puede ser una imagen o una página en blanco).
+        {player.segments.length > 0 ? (
+          <ReadingView segments={player.segments} current={player.index} onSeek={player.seek} />
+        ) : (
+          <p className="grid min-h-[40vh] place-items-center rounded-3xl border border-dashed border-white/10 p-8 text-center text-stone-400">
+            Esta página no tiene texto (puede ser una imagen o una página en blanco).
+          </p>
+        )}
+
+        <p className="hidden text-center text-xs text-stone-500 sm:block">
+          Atajos: <Kbd>Espacio</Kbd> reproducir o pausar · <Kbd>←</Kbd> <Kbd>→</Kbd> cambiar de página · clic en una
+          frase para saltar a ella
         </p>
+
+        {/* Va DESPUÉS del texto: `sticky bottom` la pega al borde inferior mientras se lee. */}
+        <PlayerBar player={player} progress={progress} />
+      </div>
+
+      {isPdf && (
+        // `sticky` + alto de la ventana: la columna se queda fija mientras el
+        // texto hace scroll, y tiene su PROPIO scroll para recorrer las páginas.
+        // En móvil no cabe al lado del texto: se oculta (la navegación de arriba basta).
+        <aside className="sticky top-4 hidden h-[calc(100dvh-2rem)] self-start lg:block">
+          <PdfThumbnails bookId={book.id} page={page} onSelect={goToPage} />
+        </aside>
       )}
-
-      <p className="hidden text-center text-xs text-stone-500 sm:block">
-        Atajos: <Kbd>Espacio</Kbd> reproducir o pausar · <Kbd>←</Kbd> <Kbd>→</Kbd> cambiar de página · clic en una frase
-        para saltar a ella
-      </p>
-
-      {/* Va DESPUÉS del texto: `sticky bottom` la pega al borde inferior mientras se lee. */}
-      <PlayerBar player={player} progress={progress} />
 
       <audio {...player.audioProps} hidden />
     </div>

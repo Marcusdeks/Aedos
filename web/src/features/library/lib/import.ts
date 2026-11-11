@@ -1,5 +1,5 @@
 import { hasWords } from "@/features/reader/lib/segment";
-import { hasBook, saveBook, type Book } from "./db";
+import { hasBook, saveBook, saveBookFile, type Book } from "./db";
 import { extractPdf } from "./pdf";
 
 /**
@@ -11,7 +11,12 @@ export async function importPdf(file: File, onProgress?: (done: number, total: n
   const data = await file.arrayBuffer();
   const id = await contentId(data);
   // Si ya estaba, no lo volvemos a procesar: se abre y conserva su progreso.
-  if (await hasBook(id)) return id;
+  // Solo se (re)guarda el fichero, por si se importó antes de que se guardaran
+  // los PDF (así ese libro también tendrá miniaturas).
+  if (await hasBook(id)) {
+    await saveBookFile(id, file);
+    return id;
+  }
 
   // OJO: pdf.js "se queda" el ArrayBuffer (lo transfiere a su Worker y deja
   // `data` vacío). Por eso calculamos el id ANTES de extraer.
@@ -21,7 +26,8 @@ export async function importPdf(file: File, onProgress?: (done: number, total: n
     throw new Error("Este PDF no tiene texto seleccionable (probablemente es un escaneo de imágenes).");
   }
 
-  await saveBook(newBook(id, file.name.replace(/\.pdf$/i, ""), "pdf", pages.length, chapters), pages);
+  // `file` es un Blob: IndexedDB lo guarda tal cual, sin convertirlo a texto.
+  await saveBook(newBook(id, file.name.replace(/\.pdf$/i, ""), "pdf", pages.length, chapters), pages, file);
   return id;
 }
 
@@ -51,7 +57,7 @@ function titleFromText(text: string, max = 60): string {
  *   - Es apto para URLs (solo caracteres hexadecimales).
  * `crypto.subtle` es la criptografía nativa del navegador: rápida y sin librerías.
  */
-async function contentId(data: BufferSource): Promise<string> {
+export async function contentId(data: BufferSource): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
   // 8 bytes = 16 caracteres hex: de sobra para no tener colisiones en una biblioteca personal.
   return Array.from(digest.subarray(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");

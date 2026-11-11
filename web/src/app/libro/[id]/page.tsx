@@ -12,7 +12,9 @@ import { BookReader, ReaderSkeleton } from "@/features/reader/components/BookRea
  */
 export default function BookPage({ params }: PageProps<"/libro/[id]">) {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-10">
+    // Ancho máximo amplio para que quepan el texto y las miniaturas del PDF;
+    // cada parte del lector limita luego su propio ancho.
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-10">
       <Suspense fallback={<ReaderSkeleton />}>
         {/* `key={id}`: al pasar de un libro a otro, React crea el lector desde
             cero en vez de reutilizarlo con el estado (página, frase) del anterior. */}

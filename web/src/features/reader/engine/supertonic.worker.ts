@@ -7,14 +7,20 @@
  *     como espeak), así que acentúa mejor las palabras con tilde.
  *   - Un solo modelo para todas las voces: cada voz es un "estilo" de ~50 KB
  *     (un vector numérico), así que cambiar de voz es instantáneo.
- *   - Contrapartida: el modelo pesa ~260 MB. Se descarga UNA vez y la
- *     librería lo guarda en la caché del navegador.
+ *   - Contrapartida: el modelo pesa ~260 MB. Se descarga UNA vez y se
+ *     guarda en el navegador (OPFS, ver opfs-cache.ts).
  *
  * Lo ejecutamos con Transformers.js (Hugging Face), que usa ONNX Runtime por debajo.
  */
-import { pipeline, type ProgressInfo, type TextToAudioPipeline } from "@huggingface/transformers";
+import { env, pipeline, type ProgressInfo, type TextToAudioPipeline } from "@huggingface/transformers";
 import type { SupertonicVoiceModel } from "../lib/engine";
+import { cachedFetch, opfsCache } from "./opfs-cache";
 import { createQueue, type WorkerRequest, type WorkerResponse } from "./protocol";
+
+// Guardar el modelo en OPFS en vez de en la Cache API (rota en Brave: ver opfs-cache.ts).
+env.useBrowserCache = false;
+env.useCustomCache = true;
+env.customCache = opfsCache;
 
 const MODEL_ID = "onnx-community/Supertonic-TTS-2-ONNX";
 const STYLE_URL = (style: string) => `https://huggingface.co/${MODEL_ID}/resolve/main/voices/${style}.bin`;
@@ -68,11 +74,9 @@ function getTts(): Promise<TextToAudioPipeline> {
 function getStyle(style: string): Promise<Float32Array> {
   let promise = styles.get(style);
   if (!promise) {
-    promise = fetch(STYLE_URL(style))
-      .then((res) => {
-        if (!res.ok) throw new Error(`No se pudo descargar la voz ${style} (HTTP ${res.status})`);
-        return res.arrayBuffer();
-      })
+    // También en OPFS: así, sin conexión, la voz sigue funcionando.
+    promise = cachedFetch(STYLE_URL(style))
+      .then((res) => res.arrayBuffer())
       .then((buffer) => new Float32Array(buffer));
     promise.catch(() => styles.delete(style));
     styles.set(style, promise);

@@ -37,7 +37,7 @@ export function BookReader({ id }: { id: string }) {
 
   if (state.status === "missing") {
     return (
-      <div className="mt-16 flex flex-col items-center gap-4 text-center">
+      <div className="mx-auto mt-16 flex max-w-3xl flex-col items-center gap-4 text-center">
         <p className="text-xl font-semibold">Este libro no está en tu biblioteca</p>
         <p className="text-stone-400">
           Los libros se guardan en este navegador. Quizá lo borraste o lo subiste en otro dispositivo.
@@ -54,7 +54,7 @@ export function BookReader({ id }: { id: string }) {
 
 export function ReaderSkeleton() {
   return (
-    <div aria-hidden className="flex animate-pulse flex-col gap-4 pt-4">
+    <div aria-hidden className="mx-auto flex w-full max-w-3xl animate-pulse flex-col gap-4 pt-4">
       <div className="h-8 w-2/3 rounded-xl bg-white/[0.06]" />
       <div className="h-12 rounded-2xl bg-white/[0.04]" />
       <div className="h-[60vh] rounded-3xl bg-white/[0.04]" />

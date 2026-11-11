@@ -1,5 +1,5 @@
 import { useRouter } from "next/navigation";
-import { useState, type DragEvent } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import { importPdf, importText } from "../lib/import";
 import { SAMPLE } from "../lib/sample";
 import { PasteTextDialog } from "./PasteTextDialog";
@@ -17,6 +17,12 @@ export function ImportPanel() {
   const router = useRouter();
   const [state, setState] = useState<ImportState>({ status: "idle" });
   const [dragging, setDragging] = useState(false);
+
+  // Con Cache Components, Next NO desmonta la página al navegar: la oculta
+  // (con <Activity> de React) y conserva su estado para volver al instante.
+  // Sin esto, al volver a la biblioteca el panel seguiría en "importando…".
+  // Al ocultarse, React ejecuta las limpiezas de los efectos: ahí lo reiniciamos.
+  useEffect(() => () => setState({ status: "idle" }), []);
 
   /** Ejecuta una importación y, si va bien, abre el libro. Centraliza estados y errores. */
   const run = async (task: (onProgress: (done: number, total: number) => void) => Promise<string>) => {

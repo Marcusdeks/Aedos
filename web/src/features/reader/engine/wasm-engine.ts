@@ -27,6 +27,9 @@ const WORKER_FACTORIES: Record<VoiceModel["engine"], () => Worker> = {
  * - Enruta cada petición al Worker de su modelo (Supertonic o Piper) y crea
  *   cada Worker de forma PEREZOSA: si nunca eliges una voz de Piper, nunca se
  *   descarga ni se ejecuta nada de Piper.
+ * - Una vez creados, los Workers no se cierran: el modelo queda cargado en
+ *   memoria y abrir otro libro no obliga a prepararlo de nuevo (~20 s en un
+ *   portátil modesto).
  */
 export class WasmTtsEngine implements TtsEngine {
   readonly #workers = new Map<VoiceModel["engine"], Worker>();
@@ -40,14 +43,6 @@ export class WasmTtsEngine implements TtsEngine {
       this.#pending.set(id, { resolve, reject, onProgress });
       this.#worker(voice.engine).postMessage({ id, text, voice } satisfies WorkerRequest);
     });
-  }
-
-  dispose(): void {
-    this.#workers.forEach((worker) => worker.terminate());
-    this.#workers.clear();
-    // Nadie se queda esperando una promesa que nunca se resolverá.
-    this.#pending.forEach(({ reject }) => reject(new Error("Motor de voz cerrado")));
-    this.#pending.clear();
   }
 
   #worker(engine: VoiceModel["engine"]): Worker {

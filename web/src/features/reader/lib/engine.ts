@@ -6,12 +6,14 @@
  *   - Web:        modelos neuronales en WebAssembly dentro de Web Workers.
  *   - Escritorio: Piper nativo ejecutado por Go (Wails).
  * Cambiar de motor = pasar otra implementación; el resto del código no se toca.
+ *
+ * El motor vive mientras la app está abierta (no hay `dispose`): preparar un
+ * modelo de voz cuesta muchos segundos, así que se mantiene cargado al pasar de
+ * un libro a otro en vez de cerrarlo y volver a cargarlo.
  */
 export interface TtsEngine {
   /** Genera el audio (WAV) de un texto corto, normalmente una frase. */
   synthesize(text: string, voice: VoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob>;
-  /** Libera recursos (hilos, procesos...). Se llama al desmontar el reproductor. */
-  dispose(): void;
 }
 
 /**

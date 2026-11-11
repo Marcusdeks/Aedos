@@ -82,9 +82,9 @@ export function PlayerBar({ player, progress }: Props) {
               onChange={(e) => setVoiceId(e.target.value as VoiceId)}
               // Ancho fijo: si no, el <select> mide lo que su opción más larga
               // y empuja velocidad y volumen a otra fila.
-              className="w-52 min-w-0 rounded-xl border border-white/10 bg-stone-900 px-3 py-2"
+              className="w-44 min-w-0 rounded-xl border border-white/10 bg-stone-900 px-3 py-2"
             >
-              {/* <optgroup> agrupa las voces por familia (calidad) dentro del desplegable. */}
+              {/* <optgroup> agrupa las voces por familia (modelo) dentro del desplegable. */}
               {ENGINES.map((engine) => (
                 <optgroup key={engine} label={ENGINE_LABEL[engine]}>
                   {VOICES.filter((v) => v.engine === engine).map((v) => (
@@ -147,19 +147,17 @@ function RangeControl({ label, range, value, onChange, format }: RangeControlPro
   );
 }
 
-/** "Supertonic F1 · Mujer", "Carlfm · Hombre · calidad baja"... */
-function voiceLabel({ name, gender, quality }: Voice): string {
-  const parts = [name, gender === "female" ? "Mujer" : "Hombre"];
-  if (quality === "low") parts.push("calidad baja");
-  return parts.join(" · ");
-}
+/** "Cayetana · Mujer", "Paco · Hombre"... */
+const voiceLabel = ({ name, gender }: Voice) => `${name} · ${gender === "female" ? "Mujer" : "Hombre"}`;
 
 function StatusText({ player }: { player: TtsPlayer }) {
   const { error, download, buffering, status, index, segments } = player;
 
   let message = "Listo para leer";
   if (error) message = `Error: ${error}`;
-  else if (download) message = `Descargando voz… ${formatProgress(download.loaded, download.total)}`;
+  // "Cargando" y no "Descargando": el mismo progreso aparece la primera vez
+  // (descarga de internet) y las siguientes (lectura del disco, mucho más rápida).
+  else if (download) message = `Cargando voz… ${formatProgress(download.loaded, download.total)}`;
   else if (buffering) message = "Generando audio…";
   else if (status !== "stopped") message = `Frase ${index + 1} de ${segments.length}`;
 

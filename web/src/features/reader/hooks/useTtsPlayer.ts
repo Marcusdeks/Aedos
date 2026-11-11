@@ -11,11 +11,11 @@ interface Options {
   /** Texto que se está leyendo (en un libro, la página actual). */
   text: string;
   /**
-   * Fábrica del motor (inyección de dependencias): la web pasa el de
-   * WebAssembly y la app de escritorio pasará el de Go. DEBE tener identidad
-   * estable (definida fuera del componente), o se recrearía el motor en cada render.
+   * Motor de síntesis (inyección de dependencias): la web pasa el de
+   * WebAssembly y la app de escritorio pasará el de Go. Lo crea quien usa el
+   * hook, UNA vez para toda la app, para que el modelo siga cargado entre libros.
    */
-  createEngine: () => TtsEngine;
+  engine: TtsEngine;
   /** Frase por la que empezar (para continuar donde se dejó). Solo se lee al montar. */
   startIndex?: number;
   /**
@@ -38,7 +38,7 @@ const clipKey = (voice: Voice, segment: Segment) => `${voice.id}|${segment.text}
  *   3. Mientras suena, precarga la frase siguiente → sin silencios entre frases.
  *   4. Al terminar (`onEnded`) avanza a la siguiente frase (o página) y vuelve al paso 1.
  */
-export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Options) {
+export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
   // `useState(loadPreferences)`: pasamos la FUNCIÓN, no su resultado. Así React
   // solo la ejecuta en el primer render (inicialización perezosa), no en cada uno.
   const [prefs, setPrefs] = useState(loadPreferences);
@@ -51,9 +51,8 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
   const [error, setError] = useState<string | null>(null);
 
   // Refs = valores que persisten entre renders pero NO provocan re-render.
-  // Ideales para objetos "del mundo exterior" (elementos DOM, workers, cachés).
+  // Ideales para objetos "del mundo exterior" (elementos DOM, cachés).
   const audioRef = useRef<HTMLAudioElement>(null);
-  const engineRef = useRef<TtsEngine>(null);
   const cacheRef = useRef<ClipCache>(null);
 
   // useMemo: re-segmentar solo cuando cambia el texto, no en cada render
@@ -76,20 +75,25 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
   const isCurrentLoaded = current !== undefined && loadedKey === clipKey(voice, current);
   const buffering = status === "playing" && !isCurrentLoaded;
 
-  // ── Efecto 1: ciclo de vida del motor ──────────────────────────────────────
-  // Se crea al montar y se destruye al desmontar (la función de limpieza).
-  // En desarrollo, React StrictMode monta→desmonta→monta a propósito para
-  // detectar limpiezas mal hechas: con este patrón no queda ningún Worker huérfano.
+  // ── Efecto 1: ciclo de vida (caché de audios y parada al salir) ────────────
+  // Se crea al montar y se vacía al desmontar (la función de limpieza), que
+  // libera la memoria de los audios. En desarrollo, React StrictMode
+  // monta→desmonta→monta a propósito para detectar limpiezas mal hechas.
+  //
+  // OJO: con Cache Components, Next no desmonta la página al salir de ella: la
+  // OCULTA (con <Activity>) y conserva su estado. Un <audio> oculto sigue
+  // sonando, así que al ocultarse (o desmontarse) hay que callarlo y pausar.
   useEffect(() => {
-    const engine = createEngine();
     const cache = new ClipCache();
-    engineRef.current = engine;
+    const audio = audioRef.current;
     cacheRef.current = cache;
     return () => {
+      audio?.pause();
+      setStatus((s) => (s === "playing" ? "paused" : s));
+      setLoadedKey(null); // sus audios se liberan aquí abajo: habrá que volver a cargarlos
       cache.clear();
-      engine.dispose();
     };
-  }, [createEngine]);
+  }, []);
 
   // ── Efecto 2: sincronizar velocidad y volumen con el <audio> ───────────────
   // `playbackRate` se reinicia al cambiar de `src`; `defaultPlaybackRate` no.
@@ -110,9 +114,8 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
   // ── Efecto 4: la máquina de reproducción ───────────────────────────────────
   useEffect(() => {
     const audio = audioRef.current;
-    const engine = engineRef.current;
     const cache = cacheRef.current;
-    if (!audio || !engine || !cache || !current) return; // !current: página sin texto (p. ej. una ilustración)
+    if (!audio || !cache || !current) return; // !current: página sin texto (p. ej. una ilustración)
 
     const load = (segment: Segment) =>
       cache.get(clipKey(voice, segment), () => engine.synthesize(segment.text, voice, setDownload));
@@ -174,7 +177,7 @@ export function useTtsPlayer({ text, createEngine, startIndex = 0, next }: Optio
     return () => {
       cancelled = true;
     };
-  }, [status, current, upcoming, voice, isCurrentLoaded]);
+  }, [status, current, upcoming, voice, isCurrentLoaded, engine]);
 
   // ── Acciones ───────────────────────────────────────────────────────────────
   const setIndex = (i: number) => setPosition({ text, index: i });

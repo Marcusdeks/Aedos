@@ -8,14 +8,22 @@ export interface ExtractedPdf {
 }
 
 /**
- * Extrae el texto de un PDF, página a página, y su índice de capítulos.
- *
- * Usa pdf.js (de Mozilla, el visor de PDF de Firefox). Se importa de forma
+ * Carga pdf.js (de Mozilla, el visor de PDF de Firefox). Se importa de forma
  * DINÁMICA (`await import`) por dos motivos:
- *   1. Pesa cientos de KB: así solo se descarga cuando alguien sube un PDF,
- *      no en la carga inicial de la página (code splitting).
+ *   1. Pesa cientos de KB: así solo se descarga cuando hace falta (al subir un
+ *      PDF o ver sus miniaturas), no en la carga inicial (code splitting).
  *   2. Usa APIs del navegador: importarlo arriba del todo lo ejecutaría también
  *      en el servidor durante el renderizado, donde no existen.
+ */
+export async function loadPdfjs() {
+  const pdfjs = await import("pdfjs-dist");
+  // Un único Worker para toda la sesión: `??=` solo lo crea la primera vez.
+  pdfjs.GlobalWorkerOptions.workerPort ??= new Worker(new URL("./pdf.worker.ts", import.meta.url), { type: "module" });
+  return pdfjs;
+}
+
+/**
+ * Extrae el texto de un PDF, página a página, y su índice de capítulos.
  *
  * ¿Sin límite de páginas? Sí: procesamos una página cada vez y liberamos su
  * memoria (`page.cleanup()`) antes de pasar a la siguiente.
@@ -24,10 +32,7 @@ export async function extractPdf(
   data: ArrayBuffer,
   onProgress?: (done: number, total: number) => void,
 ): Promise<ExtractedPdf> {
-  const pdfjs = await import("pdfjs-dist");
-  // Un único Worker para toda la sesión: `??=` solo lo crea la primera vez.
-  pdfjs.GlobalWorkerOptions.workerPort ??= new Worker(new URL("./pdf.worker.ts", import.meta.url), { type: "module" });
-
+  const pdfjs = await loadPdfjs();
   const loadingTask = pdfjs.getDocument({ data });
   try {
     const pdf = await loadingTask.promise;
@@ -51,7 +56,7 @@ export async function extractPdf(
  * pdf.js nos da esos trozos (`str`) y marca los finales de línea (`hasEOL`).
  * Reconstruimos el texto con reglas sencillas (heurísticas):
  */
-function normalizePageText({ items }: TextContent): string {
+export function normalizePageText({ items }: Pick<TextContent, "items">): string {
   let raw = "";
   for (const item of items) {
     // `items` mezcla trozos de texto con marcadores de estructura sin texto.

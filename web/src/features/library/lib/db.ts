@@ -39,14 +39,16 @@ export interface Book {
 }
 
 /**
- * Esquema tipado: dos "tablas" (object stores).
- * El texto va APARTE de la ficha para que listar la biblioteca no cargue en
- * memoria el contenido de todos los libros, solo sus fichas.
+ * Esquema tipado: tres "tablas" (object stores).
+ * El texto y el fichero van APARTE de la ficha para que listar la biblioteca
+ * no cargue en memoria el contenido de todos los libros, solo sus fichas.
  */
 interface AedosDB extends DBSchema {
   books: { key: string; value: Book; indexes: { "by-opened": number } };
   /** Texto de cada página. Clave = id del libro. */
   pages: { key: string; value: string[] };
+  /** PDF original, para dibujar las miniaturas de sus páginas. Clave = id del libro. */
+  files: { key: string; value: Blob };
 }
 
 let dbPromise: Promise<IDBPDatabase<AedosDB>> | null = null;
@@ -57,13 +59,18 @@ let dbPromise: Promise<IDBPDatabase<AedosDB>> | null = null;
  * podemos abrirla al importar el módulo (en el servidor no hay `indexedDB`).
  */
 function db() {
-  dbPromise ??= openDB<AedosDB>("aedos", 1, {
+  dbPromise ??= openDB<AedosDB>("aedos", 2, {
     // `upgrade` se ejecuta al crear la base o al subir la versión: es el sitio
-    // de las "migraciones". Si mañana cambias el esquema, subes a la versión 2
-    // y migras aquí los datos de quien tenga la 1.
-    upgrade(database) {
-      database.createObjectStore("books", { keyPath: "id" }).createIndex("by-opened", "openedAt");
-      database.createObjectStore("pages");
+    // de las "MIGRACIONES". `oldVersion` dice de qué versión viene el usuario
+    // (0 = no tenía base) y se aplican solo los pasos que le faltan, en orden.
+    upgrade(database, oldVersion) {
+      if (oldVersion < 1) {
+        database.createObjectStore("books", { keyPath: "id" }).createIndex("by-opened", "openedAt");
+        database.createObjectStore("pages");
+      }
+      // Versión 2: se guarda también el PDF. Los libros importados antes no lo
+      // tienen; se completa si el usuario vuelve a subir el mismo PDF.
+      if (oldVersion < 2) database.createObjectStore("files");
     },
   });
   return dbPromise;
@@ -86,13 +93,28 @@ export async function hasBook(id: string): Promise<boolean> {
   return (await (await db()).getKey("books", id)) !== undefined;
 }
 
+/** El PDF original de un libro (undefined si es un texto pegado o se importó antes de guardarlos). */
+export async function getBookFile(id: string): Promise<Blob | undefined> {
+  return (await db()).get("files", id);
+}
+
+/** Guarda (o sustituye) el PDF original de un libro. */
+export async function saveBookFile(id: string, file: Blob): Promise<void> {
+  await (await db()).put("files", file, id);
+}
+
 /**
- * Guarda ficha y texto en UNA transacción: o se guardan los dos o ninguno.
- * Así nunca queda una ficha sin texto si algo falla a medias.
+ * Guarda ficha, texto y (si lo hay) fichero en UNA transacción: o se guarda
+ * todo o nada. Así nunca queda una ficha sin texto si algo falla a medias.
  */
-export async function saveBook(book: Book, pages: string[]): Promise<void> {
-  const tx = (await db()).transaction(["books", "pages"], "readwrite");
-  await Promise.all([tx.objectStore("books").put(book), tx.objectStore("pages").put(pages, book.id), tx.done]);
+export async function saveBook(book: Book, pages: string[], file?: Blob): Promise<void> {
+  const tx = (await db()).transaction(["books", "pages", "files"], "readwrite");
+  await Promise.all([
+    tx.objectStore("books").put(book),
+    tx.objectStore("pages").put(pages, book.id),
+    file && tx.objectStore("files").put(file, book.id),
+    tx.done,
+  ]);
   // Pide al navegador que no borre estos datos si se queda sin espacio
   // (por defecto el almacenamiento es "best effort" y se puede vaciar).
   void navigator.storage?.persist?.();
@@ -107,6 +129,11 @@ export async function savePosition(id: string, position: Position): Promise<void
 }
 
 export async function deleteBook(id: string): Promise<void> {
-  const tx = (await db()).transaction(["books", "pages"], "readwrite");
-  await Promise.all([tx.objectStore("books").delete(id), tx.objectStore("pages").delete(id), tx.done]);
+  const tx = (await db()).transaction(["books", "pages", "files"], "readwrite");
+  await Promise.all([
+    tx.objectStore("books").delete(id),
+    tx.objectStore("pages").delete(id),
+    tx.objectStore("files").delete(id),
+    tx.done,
+  ]);
 }
