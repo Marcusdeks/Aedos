@@ -24,35 +24,48 @@ const WORKER_FACTORIES: Record<VoiceModel["engine"], () => Worker> = {
  * - Convierte la comunicación por mensajes del Worker (asíncrona, sin respuesta
  *   directa) en una API de promesas: `await engine.synthesize(...)`. Este patrón
  *   se llama RPC (Remote Procedure Call) sobre mensajes.
- * - Enruta cada petición al Worker de su modelo (Supertonic o Piper) y crea
- *   cada Worker de forma PEREZOSA: si nunca eliges una voz de Piper, nunca se
- *   descarga ni se ejecuta nada de Piper.
- * - Una vez creados, los Workers no se cierran: el modelo queda cargado en
- *   memoria y abrir otro libro no obliga a prepararlo de nuevo (~20 s en un
+ * - Enruta cada petición al Worker de su modelo (Supertonic o Piper) y lo crea
+ *   de forma PEREZOSA: si nunca eliges una voz de Piper, nunca se descarga ni
+ *   se ejecuta nada de Piper.
+ * - Mientras no cambies de motor, el Worker no se cierra: el modelo queda
+ *   cargado y abrir otro libro no obliga a prepararlo de nuevo (~20 s en un
  *   portátil modesto).
  */
 export class WasmTtsEngine implements TtsEngine {
-  readonly #workers = new Map<VoiceModel["engine"], Worker>();
+  /** El Worker activo y su modelo. Solo hay uno a la vez (ver `#worker`). */
+  #active: { engine: VoiceModel["engine"]; worker: Worker } | null = null;
   readonly #pending = new Map<number, PendingRequest>();
   #nextId = 0;
 
   synthesize(text: string, voice: VoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob> {
-    // Los ids son únicos entre TODOS los Workers: una sola tabla de pendientes basta.
+    // Primero el Worker: si hay que cambiar de modelo, se cancelan las
+    // peticiones pendientes del anterior, y esta no debe estar entre ellas.
+    const worker = this.#worker(voice.engine);
     const id = this.#nextId++;
     return new Promise((resolve, reject) => {
       this.#pending.set(id, { resolve, reject, onProgress });
-      this.#worker(voice.engine).postMessage({ id, text, voice } satisfies WorkerRequest);
+      worker.postMessage({ id, text, voice } satisfies WorkerRequest);
     });
   }
 
+  /**
+   * UN SOLO MODELO EN MEMORIA: al pasar de una voz de Supertonic a una de
+   * Piper (o al revés) se cierra el Worker anterior. Tener los dos cargados
+   * (~260 MB + ~60 MB, más lo que ocupa ejecutarlos) llegó a tumbar la pestaña
+   * en un portátil con 8 GB de RAM. Volver al otro motor obliga a recargarlo
+   * (desde el disco, sin descargar), pero es raro: se suele elegir una voz y ya.
+   */
   #worker(engine: VoiceModel["engine"]): Worker {
-    let worker = this.#workers.get(engine);
-    if (!worker) {
-      worker = WORKER_FACTORIES[engine]();
+    if (this.#active?.engine !== engine) {
+      this.#active?.worker.terminate();
+      // Nadie se queda esperando una respuesta de un Worker que ya no existe.
+      this.#pending.forEach(({ reject }) => reject(new Error("Se cambió de motor de voz")));
+      this.#pending.clear();
+      const worker = WORKER_FACTORIES[engine]();
       worker.onmessage = this.#handleMessage;
-      this.#workers.set(engine, worker);
+      this.#active = { engine, worker };
     }
-    return worker;
+    return this.#active.worker;
   }
 
   // Función flecha como campo de clase: `this` queda fijado a la instancia

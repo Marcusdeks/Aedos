@@ -5,9 +5,11 @@
  * milisegundos por frase. En el hilo principal congelaría la interfaz (botones
  * que no responden, scroll a tirones). En un Worker corre en otro hilo.
  *
- * Nota de rendimiento: ONNX Runtime avisa de que usa un solo hilo. El modo
- * multihilo exige aislamiento cross-origin (cabeceras COOP/COEP); se probó y
- * con esta librería la inferencia se queda bloqueada, así que se descartó.
+ * Nota de rendimiento: la web se sirve con aislamiento cross-origin (cabeceras
+ * COOP/COEP, ver next.config.ts), que permite a ONNX Runtime usar varios
+ * hilos. En una versión anterior del proyecto, con esta librería, el modo
+ * multihilo dejaba la inferencia bloqueada; con las versiones actuales se
+ * comprobó leyendo un texto entero que funciona.
  */
 import { INFERENCE_PROGRESS_URL, TtsSession } from "@mintplex-labs/piper-tts-web";
 import { env } from "onnxruntime-web/wasm";
