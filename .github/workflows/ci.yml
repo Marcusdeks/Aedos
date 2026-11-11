@@ -1,0 +1,48 @@
+# Integración continua: en cada push y pull request, GitHub comprueba que el
+# proyecto sigue sano (formato, tipos, lint, tests y que compila).
+# Si algo falla, el commit aparece con una ❌ en GitHub.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Si llega otro push a la misma rama, se cancela la ejecución anterior (ya no importa).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # `npm ci` instala EXACTAMENTE lo del package-lock.json (reproducible).
+      # También aplica el parche de Piper (script postinstall).
+      - run: npm ci
+
+      - name: Formato (Prettier)
+        run: npm run format:check
+
+      - name: Tipos (TypeScript)
+        run: npm run typecheck
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Tests (Vitest)
+        run: npm test
+
+      - name: Build (Next.js)
+        run: npm run build
