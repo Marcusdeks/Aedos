@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { ClipCache } from "../lib/clip-cache";
+import { findEdgeVoice, speak } from "../lib/edge-speech";
 import type { DownloadProgress, TtsEngine } from "../lib/engine";
 import { loadPreferences, savePreferences } from "../lib/preferences";
 import { segmentSentences, type Segment } from "../lib/segment";
@@ -111,11 +112,26 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
   // ── Efecto 3: recordar voz, velocidad y volumen para la próxima visita ─────
   useEffect(() => savePreferences(prefs), [prefs]);
 
-  // ── Efecto 4: la máquina de reproducción ───────────────────────────────────
+  // Un error al reproducir para la lectura y se muestra. `useEffectEvent`:
+  // función estable que pueden usar los efectos sin ser una dependencia más.
+  const fail = useEffectEvent((err: unknown) => {
+    // AbortError = "play() interrumpido por pause()": es normal si el usuario
+    // pausa muy rápido. No es un error real.
+    if (err instanceof DOMException && err.name === "AbortError") return;
+    setError(err instanceof Error ? err.message : String(err));
+    setStatus("stopped");
+  });
+
+  // ── Efecto 4: la máquina de reproducción (voces que generan audio) ─────────
   useEffect(() => {
     const audio = audioRef.current;
     const cache = cacheRef.current;
     if (!audio || !cache || !current) return; // !current: página sin texto (p. ej. una ilustración)
+    // Las voces de Edge las reproduce el navegador (Efecto 5): el <audio> se calla.
+    if (voice.engine === "edge") {
+      audio.pause();
+      return;
+    }
 
     const load = (segment: Segment) =>
       cache.get(clipKey(voice, segment), () => engine.synthesize(segment.text, voice, setDownload));
@@ -133,14 +149,6 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
       );
       return;
     }
-
-    const fail = (err: unknown) => {
-      // AbortError = "play() interrumpido por pause()": es normal si el usuario
-      // pausa muy rápido. No es un error real.
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : String(err));
-      setStatus("stopped");
-    };
 
     // La frase actual ya está cargada (reanudar tras pausa, o recién cargada).
     if (isCurrentLoaded) {
@@ -209,6 +217,41 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
     else if (next) next.go();
     else stop();
   };
+
+  // ── Efecto 5: voces de Edge (las reproduce el navegador, no el <audio>) ────
+  // Mismo ciclo que el Efecto 4, pero sin audio que guardar: se le da la frase
+  // a `speechSynthesis` y, cuando termina, se pasa a la siguiente. Pausar corta
+  // la frase (la limpieza la cancela) y reanudar la empieza de nuevo: la
+  // pausa nativa de estas voces no es fiable. Cambiar velocidad o volumen
+  // también la reinicia, para aplicarlos al momento.
+  const onSpeechEnd = useEffectEvent(handleEnded);
+  useEffect(() => {
+    if (voice.engine !== "edge" || status !== "playing" || !current) return;
+
+    let cancelled = false;
+    let speech: ReturnType<typeof speak> | null = null;
+    findEdgeVoice(voice.voiceName)
+      .then((edgeVoice) => {
+        if (cancelled) return;
+        speech = speak(current.text, edgeVoice, {
+          rate: prefs.rate,
+          volume: prefs.volume,
+          // Hasta que suena, el reproductor muestra "Generando audio…".
+          onStart: () => setLoadedKey(clipKey(voice, current)),
+        });
+        return speech.done.then(() => {
+          if (!cancelled) onSpeechEnd();
+        });
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) fail(err);
+      });
+
+    return () => {
+      cancelled = true;
+      speech?.cancel();
+    };
+  }, [status, current, voice, prefs.rate, prefs.volume]);
 
   return {
     segments,

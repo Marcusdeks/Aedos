@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useEffect, useEffectEvent, useState } from "react";
 import { savePosition, type Book } from "@/features/library/lib/db";
-import { WasmTtsEngine } from "../engine/wasm-engine";
+import { WebTtsEngine } from "../engine/web-engine";
 import { useTtsPlayer } from "../hooks/useTtsPlayer";
 import { hasWords } from "../lib/segment";
 import { PageNav } from "./PageNav";
@@ -12,7 +12,7 @@ import { ReadingView } from "./ReadingView";
 // UN motor para toda la pestaña, fuera del componente: sobrevive al cambiar de
 // libro o volver a la biblioteca, así el modelo de voz no se prepara otra vez.
 // (Crearlo aquí es barato: los Workers no se crean hasta la primera frase.)
-const engine = new WasmTtsEngine();
+const engine = new WebTtsEngine();
 
 /** Siguiente página con texto a partir de `from` (las de solo imágenes se saltan). -1 si no queda ninguna. */
 const nextReadablePage = (pages: string[], from: number) => pages.findIndex((p, i) => i >= from && hasWords(p));

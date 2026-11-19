@@ -1,4 +1,4 @@
-import type { DownloadProgress, VoiceModel } from "../lib/engine";
+import type { DownloadProgress, LocalVoiceModel } from "../lib/engine";
 
 /**
  * Mensajes entre el hilo principal y los Workers de voz.
@@ -13,7 +13,7 @@ import type { DownloadProgress, VoiceModel } from "../lib/engine";
  * Es GENÉRICO (`<V>`): cada Worker declara qué tipo de voz recibe. El de Piper
  * usa `WorkerRequest<PiperVoiceModel>` y TypeScript sabe que trae `model` y `speaker`.
  */
-export interface WorkerRequest<V extends VoiceModel = VoiceModel> {
+export interface WorkerRequest<V extends LocalVoiceModel = LocalVoiceModel> {
   id: number;
   text: string;
   voice: V;

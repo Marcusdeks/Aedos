@@ -1,4 +1,4 @@
-import type { DownloadProgress, TtsEngine, VoiceModel } from "../lib/engine";
+import type { DownloadProgress, LocalVoiceModel } from "../lib/engine";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
 
 interface PendingRequest {
@@ -13,8 +13,9 @@ interface PendingRequest {
  * bundler para compilar cada Worker como un fichero aparte. Por eso no se
  * puede construir la ruta con una variable: tiene que ser un texto literal.
  */
-const WORKER_FACTORIES: Record<VoiceModel["engine"], () => Worker> = {
+const WORKER_FACTORIES: Record<LocalVoiceModel["engine"], () => Worker> = {
   supertonic: () => new Worker(new URL("./supertonic.worker.ts", import.meta.url), { type: "module" }),
+  kokoro: () => new Worker(new URL("./kokoro.worker.ts", import.meta.url), { type: "module" }),
   piper: () => new Worker(new URL("./piper.worker.ts", import.meta.url), { type: "module" }),
 };
 
@@ -24,20 +25,20 @@ const WORKER_FACTORIES: Record<VoiceModel["engine"], () => Worker> = {
  * - Convierte la comunicación por mensajes del Worker (asíncrona, sin respuesta
  *   directa) en una API de promesas: `await engine.synthesize(...)`. Este patrón
  *   se llama RPC (Remote Procedure Call) sobre mensajes.
- * - Enruta cada petición al Worker de su modelo (Supertonic o Piper) y lo crea
+ * - Enruta cada petición al Worker de su modelo (Supertonic, Kokoro o Piper) y lo crea
  *   de forma PEREZOSA: si nunca eliges una voz de Piper, nunca se descarga ni
  *   se ejecuta nada de Piper.
  * - Mientras no cambies de motor, el Worker no se cierra: el modelo queda
  *   cargado y abrir otro libro no obliga a prepararlo de nuevo (~20 s en un
  *   portátil modesto).
  */
-export class WasmTtsEngine implements TtsEngine {
+export class WasmTtsEngine {
   /** El Worker activo y su modelo. Solo hay uno a la vez (ver `#worker`). */
-  #active: { engine: VoiceModel["engine"]; worker: Worker } | null = null;
+  #active: { engine: LocalVoiceModel["engine"]; worker: Worker } | null = null;
   readonly #pending = new Map<number, PendingRequest>();
   #nextId = 0;
 
-  synthesize(text: string, voice: VoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob> {
+  synthesize(text: string, voice: LocalVoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob> {
     // Primero el Worker: si hay que cambiar de modelo, se cancelan las
     // peticiones pendientes del anterior, y esta no debe estar entre ellas.
     const worker = this.#worker(voice.engine);
@@ -49,13 +50,13 @@ export class WasmTtsEngine implements TtsEngine {
   }
 
   /**
-   * UN SOLO MODELO EN MEMORIA: al pasar de una voz de Supertonic a una de
+   * UN SOLO MODELO EN MEMORIA: al pasar, por ejemplo, de una voz de Supertonic a una de
    * Piper (o al revés) se cierra el Worker anterior. Tener los dos cargados
    * (~260 MB + ~60 MB, más lo que ocupa ejecutarlos) llegó a tumbar la pestaña
    * en un portátil con 8 GB de RAM. Volver al otro motor obliga a recargarlo
    * (desde el disco, sin descargar), pero es raro: se suele elegir una voz y ya.
    */
-  #worker(engine: VoiceModel["engine"]): Worker {
+  #worker(engine: LocalVoiceModel["engine"]): Worker {
     if (this.#active?.engine !== engine) {
       this.#active?.worker.terminate();
       // Nadie se queda esperando una respuesta de un Worker que ya no existe.

@@ -11,6 +11,30 @@ index c402a09..272212c 100644
  }
  export declare const INFERENCE_PROGRESS_URL = "tts://inference-progress";
  /**
+diff --git a/node_modules/@mintplex-labs/piper-tts-web/dist/phonemize.d.ts b/node_modules/@mintplex-labs/piper-tts-web/dist/phonemize.d.ts
+new file mode 100644
+index 0000000..bbf79ae
+--- /dev/null
++++ b/node_modules/@mintplex-labs/piper-tts-web/dist/phonemize.d.ts
+@@ -0,0 +1,18 @@
++/** Módulo Emscripten de piper_phonemize (espeak-ng compilado a WebAssembly). */
++export interface PiperPhonemizeModule {
++  callMain(args: string[]): void;
++}
++
++export interface PiperPhonemizeOptions {
++  /** Recibe cada línea que el programa escribe por la salida estándar (un JSON por texto). */
++  print: (line: string) => void;
++  printErr?: (message: string) => void;
++  /** Dónde descargar `piper_phonemize.wasm` y `piper_phonemize.data` si no se dan ya cargados. */
++  locateFile?: (file: string) => string;
++  /** El .wasm ya descargado (evita que el módulo lo pida a la red). */
++  wasmBinary?: ArrayBuffer;
++  /** Devuelve el .data ya descargado (los diccionarios de espeak-ng). */
++  getPreloadedPackage?: (name: string, size: number) => ArrayBuffer;
++}
++
++export declare function createPiperPhonemize(options: PiperPhonemizeOptions): Promise<PiperPhonemizeModule>;
 diff --git a/node_modules/@mintplex-labs/piper-tts-web/dist/piper-tts-web.js b/node_modules/@mintplex-labs/piper-tts-web/dist/piper-tts-web.js
 index 250fa01..957d605 100644
 --- a/node_modules/@mintplex-labs/piper-tts-web/dist/piper-tts-web.js
@@ -50,3 +74,18 @@ index 250fa01..957d605 100644
    const noiseScale = __privateGet(this, _modelConfig).inference.noise_scale;
    const lengthScale = __privateGet(this, _modelConfig).inference.length_scale;
    const noiseW = __privateGet(this, _modelConfig).inference.noise_w;
+diff --git a/node_modules/@mintplex-labs/piper-tts-web/package.json b/node_modules/@mintplex-labs/piper-tts-web/package.json
+index 293fedd..b80f3a0 100644
+--- a/node_modules/@mintplex-labs/piper-tts-web/package.json
++++ b/node_modules/@mintplex-labs/piper-tts-web/package.json
+@@ -15,6 +15,10 @@
+     ".": {
+       "import": "./dist/piper-tts-web.js",
+       "types": "./dist/index.d.ts"
++    },
++    "./phonemize": {
++      "types": "./dist/phonemize.d.ts",
++      "import": "./dist/piper-o91UDS6e.js"
+     }
+   },
+   "publishConfig": {

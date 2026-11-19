@@ -3,7 +3,7 @@
  *
  * El reproductor (hook + UI) solo conoce esta interfaz, no CÓMO se genera el
  * audio. Es el principio de inversión de dependencias (la "D" de SOLID):
- *   - Web:        modelos neuronales en WebAssembly dentro de Web Workers.
+ *   - Web:        modelos neuronales en WebAssembly (Web Workers) o Azure.
  *   - Escritorio: Piper nativo ejecutado por Go (Wails).
  * Cambiar de motor = pasar otra implementación; el resto del código no se toca.
  *
@@ -12,15 +12,24 @@
  * un libro a otro en vez de cerrarlo y volver a cargarlo.
  */
 export interface TtsEngine {
-  /** Genera el audio (WAV) de un texto corto, normalmente una frase. */
-  synthesize(text: string, voice: VoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob>;
+  /** Genera el audio (WAV o MP3) de un texto corto, normalmente una frase. */
+  synthesize(text: string, voice: ClipVoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob>;
 }
 
 /**
  * Lo mínimo que un motor necesita saber de una voz. Es una UNIÓN DISCRIMINADA
  * por `engine`: cada modelo de IA identifica sus voces de forma distinta.
  */
-export type VoiceModel = SupertonicVoiceModel | PiperVoiceModel;
+export type VoiceModel = ClipVoiceModel | EdgeVoiceModel;
+
+/**
+ * Voces que generan un FICHERO de audio (Blob) por frase. Las de Edge no: el
+ * navegador las reproduce él mismo (Web Speech API) y nunca nos da el audio.
+ */
+export type ClipVoiceModel = LocalVoiceModel | AzureVoiceModel;
+
+/** Voces que se ejecutan en el propio equipo (modelos en Web Workers). */
+export type LocalVoiceModel = SupertonicVoiceModel | KokoroVoiceModel | PiperVoiceModel;
 
 /** Supertonic: un único modelo para todas las voces; cada voz es un "estilo" (F1…F5, M1…M5). */
 export interface SupertonicVoiceModel {
@@ -35,6 +44,26 @@ export interface PiperVoiceModel {
   model: string;
   /** Índice del hablante dentro del modelo (0 si el modelo solo tiene uno). */
   speaker: number;
+}
+
+/** Kokoro: un único modelo; cada voz es un fichero de estilo ("ef_dora", "em_alex"...). */
+export interface KokoroVoiceModel {
+  engine: "kokoro";
+  voice: string;
+}
+
+/** Azure AI Speech (nube de Microsoft, con la clave del propio usuario). */
+export interface AzureVoiceModel {
+  engine: "azure";
+  /** Nombre oficial de la voz en Azure, p. ej. "es-ES-ElviraNeural". */
+  voiceName: string;
+}
+
+/** Voces "online" que Microsoft Edge ofrece a cualquier web (Web Speech API). */
+export interface EdgeVoiceModel {
+  engine: "edge";
+  /** Parte del nombre con el que Edge expone la voz: "Elvira" → "Microsoft Elvira Online (Natural) - Spanish (Spain)". */
+  voiceName: string;
 }
 
 /** Progreso de descarga del modelo de voz (solo ocurre la primera vez). */

@@ -1,9 +1,19 @@
 import { Equalizer } from "@/components/Equalizer";
 import type { TtsPlayer } from "../hooks/useTtsPlayer";
 import { RATE_RANGE, VOLUME_RANGE } from "../lib/preferences";
-import { ENGINE_LABEL, VOICES, type Voice, type VoiceId } from "../lib/voices";
+import { ENGINE_LABEL, getVoice, VOICES, type Voice, type VoiceId } from "../lib/voices";
+import { AzureSettings } from "./AzureSettings";
 
 const ENGINES = Object.keys(ENGINE_LABEL) as Voice["engine"][];
+
+/**
+ * Aviso bajo los controles para las voces en la nube: el usuario tiene que
+ * saber que, con ellas, el texto del libro sale de su equipo.
+ */
+const VOICE_NOTICE: Partial<Record<Voice["engine"], string>> = {
+  edge: "Voz de Microsoft Edge: solo funciona en ese navegador, y el texto se envía a Microsoft para leerlo.",
+  azure: "Voz de Azure: el texto se envía a Microsoft con tu propia cuenta (gratis hasta 500.000 caracteres al mes).",
+};
 
 interface Props {
   player: TtsPlayer;
@@ -15,6 +25,7 @@ interface Props {
 export function PlayerBar({ player, progress }: Props) {
   const { status, buffering, toggle, stop, voiceId, setVoiceId, rate, setRate, volume, setVolume, segments } = player;
   const isPlaying = status === "playing";
+  const voice = getVoice(voiceId);
 
   return (
     // `sticky bottom-3`: la barra se queda pegada abajo al hacer scroll, al
@@ -96,6 +107,7 @@ export function PlayerBar({ player, progress }: Props) {
               ))}
             </select>
           </label>
+          {voice.engine === "azure" && <AzureSettings />}
 
           <RangeControl
             label="Velocidad"
@@ -111,6 +123,7 @@ export function PlayerBar({ player, progress }: Props) {
             onChange={setVolume}
             format={(v) => `${Math.round(v * 100)} %`}
           />
+          {VOICE_NOTICE[voice.engine] && <p className="w-full text-xs text-stone-400">{VOICE_NOTICE[voice.engine]}</p>}
         </div>
       </div>
     </div>
@@ -147,7 +160,7 @@ function RangeControl({ label, range, value, onChange, format }: RangeControlPro
   );
 }
 
-/** "Cayetana · Mujer", "Paco · Hombre"... */
+/** "Dora · Mujer", "DaveFX · Hombre"... */
 const voiceLabel = ({ name, gender }: Voice) => `${name} · ${gender === "female" ? "Mujer" : "Hombre"}`;
 
 function StatusText({ player }: { player: TtsPlayer }) {

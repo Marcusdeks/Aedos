@@ -14,6 +14,7 @@
  */
 import { env, pipeline, type ProgressInfo, type TextToAudioPipeline } from "@huggingface/transformers";
 import type { SupertonicVoiceModel } from "../lib/engine";
+import { pickDevice } from "./device";
 import { cachedFetch, opfsCache } from "./opfs-cache";
 import { createQueue, type WorkerRequest, type WorkerResponse } from "./protocol";
 
@@ -30,17 +31,6 @@ const STYLE_URL = (style: string) => `https://huggingface.co/${MODEL_ID}/resolve
  * pasos, en CPU, cada frase tardaba el DOBLE de lo que dura → cortes al leer.
  */
 const INFERENCE_STEPS = 5;
-
-/**
- * ¿Dónde ejecutar el modelo? WebGPU usa la tarjeta gráfica y es mucho más
- * rápido; si el navegador no lo ofrece, WebAssembly en la CPU.
- * `requestAdapter()` puede devolver null aunque exista `navigator.gpu` (GPU
- * en lista negra, drivers...), por eso no basta con comprobar que existe.
- */
-async function pickDevice(): Promise<"webgpu" | "wasm"> {
-  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
-  return (await gpu?.requestAdapter().catch(() => null)) ? "webgpu" : "wasm";
-}
 
 const reply = (msg: WorkerResponse) => postMessage(msg);
 const enqueue = createQueue(reply);
