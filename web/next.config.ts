@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // Next genera por defecto un AGENTS.md al arrancar; este proyecto no lo usa.
+  agentRules: false,
 
   // AISLAMIENTO DE ORIGEN (cross-origin isolation). Con estas dos cabeceras el
   // navegador activa `SharedArrayBuffer`, que es lo que permite a ONNX Runtime
