@@ -66,8 +66,10 @@ export async function cachedFetch(url: string): Promise<Response> {
   if (hit) return hit;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`No se pudo descargar ${url} (HTTP ${res.status})`);
-  // `clone()`: un cuerpo solo se puede leer una vez; una copia va a disco y la otra se devuelve.
+  // `clone()`: un cuerpo solo se puede leer una vez; una copia va a disco y la
+  // otra se devuelve. Sin `await`: las dos copias avanzan a la vez, así quien
+  // llama puede ir mostrando el progreso de la descarga mientras se guarda.
   // Si no se puede guardar (disco lleno...), no es grave: se usa igual y se descargará otra vez.
-  await opfsCache.put(url, res.clone()).catch(() => {});
+  void opfsCache.put(url, res.clone()).catch(() => {});
   return res;
 }

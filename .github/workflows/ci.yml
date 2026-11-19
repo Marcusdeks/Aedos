@@ -29,7 +29,6 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       # `npm ci` instala EXACTAMENTE lo del package-lock.json (reproducible).
-      # También aplica el parche de Piper (script postinstall).
       - run: npm ci
 
       - name: Formato (Prettier)

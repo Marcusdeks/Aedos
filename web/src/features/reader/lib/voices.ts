@@ -3,15 +3,10 @@ import type { VoiceModel } from "./engine";
 /**
  * Catálogo de voces en español de España.
  *
- * Cinco familias, de más a menos privada:
+ * Cuatro familias, de más a menos privada:
  *   - En tu equipo (el texto no sale del navegador; el modelo se descarga una vez):
  *       · Supertonic 2: las más naturales. Un modelo de ~260 MB para todas sus
  *         voces. Trae 10 estilos, pero solo F5 y M5 suenan peninsulares.
- *       · Kokoro: un modelo (~90 MB en CPU, ~330 MB en tarjeta gráfica) con 3
- *         voces en español. Su ficha no dice de qué país son: [a confirmar]
- *         escuchándolas. Es la más lenta de preparar: medido en un portátil
- *         modesto (i3, 8 GB), ~2 min cada vez que se abre la pestaña, aunque
- *         el modelo ya esté descargado; en CPU no terminó ni en 6 min.
  *       · Piper: más ligeras (~60 MB por voz) pero más robóticas. Son todas
  *         las es_ES que existen. `sharvard` trae DOS hablantes (masculino 0 y
  *         femenino 1): cada voz es la pareja modelo + hablante.
@@ -19,6 +14,8 @@ import type { VoiceModel } from "./engine";
  *       · Edge: voces gratuitas que el navegador Microsoft Edge ofrece a
  *         cualquier web. En otros navegadores no existen.
  *       · Azure: el catálogo completo, con la clave de Azure del propio usuario.
+ *
+ * Kokoro se probó y se descartó: sus 3 voces en español son latinoamericanas.
  *
  * Los nombres son los oficiales de cada modelo, no inventados. Ximena no se
  * ofrece: Azure la publica como es-ES, pero Edge la etiqueta "Spanish
@@ -52,10 +49,6 @@ export const VOICES = [
   // ── Supertonic ──
   { id: "st-f5", engine: "supertonic", style: "F5", name: "F5", gender: "female" },
   { id: "st-m5", engine: "supertonic", style: "M5", name: "M5", gender: "male" },
-  // ── Kokoro ──
-  { id: "ko-dora", engine: "kokoro", voice: "ef_dora", name: "Dora", gender: "female" },
-  { id: "ko-alex", engine: "kokoro", voice: "em_alex", name: "Alex", gender: "male" },
-  { id: "ko-santa", engine: "kokoro", voice: "em_santa", name: "Santa", gender: "male" },
   // ── Piper ──
   {
     id: "es-sharvard-f",
@@ -114,13 +107,12 @@ export type VoiceId = (typeof VOICES)[number]["id"];
 
 export const DEFAULT_VOICE: VoiceId = "st-f5";
 
-/** Grupos del selector de voz, en el orden en que se muestran. */
+/** Tipos de voz del primer desplegable, en el orden en que se muestran. */
 export const ENGINE_LABEL: Record<Voice["engine"], string> = {
-  supertonic: "Supertonic · en tu equipo",
-  kokoro: "Kokoro · en tu equipo (tarda en cargar)",
-  piper: "Piper · en tu equipo (ligeras)",
-  edge: "Edge · solo en Microsoft Edge",
-  azure: "Azure · con tu clave",
+  supertonic: "Supertonic (natural)",
+  piper: "Piper (ligera)",
+  edge: "Edge (solo en Edge)",
+  azure: "Azure (tu clave)",
 };
 
 /**

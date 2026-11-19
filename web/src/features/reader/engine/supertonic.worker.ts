@@ -14,9 +14,8 @@
  */
 import { env, pipeline, type ProgressInfo, type TextToAudioPipeline } from "@huggingface/transformers";
 import type { SupertonicVoiceModel } from "../lib/engine";
-import { pickDevice } from "./device";
 import { cachedFetch, opfsCache } from "./opfs-cache";
-import { createQueue, type WorkerRequest, type WorkerResponse } from "./protocol";
+import { createQueue, type WorkerMessage, type WorkerResponse } from "./protocol";
 
 // Guardar el modelo en OPFS en vez de en la Cache API (rota en Brave: ver opfs-cache.ts).
 env.useBrowserCache = false;
@@ -32,8 +31,19 @@ const STYLE_URL = (style: string) => `https://huggingface.co/${MODEL_ID}/resolve
  */
 const INFERENCE_STEPS = 5;
 
+/**
+ * ¿Dónde ejecutar el modelo? WebGPU usa la tarjeta gráfica y es mucho más
+ * rápido; si el navegador no lo ofrece, WebAssembly en la CPU.
+ * `requestAdapter()` puede devolver null aunque exista `navigator.gpu` (GPU
+ * en lista negra, drivers...), por eso no basta con comprobar que existe.
+ */
+async function pickDevice(): Promise<"webgpu" | "wasm"> {
+  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
+  return (await gpu?.requestAdapter().catch(() => null)) ? "webgpu" : "wasm";
+}
+
 const reply = (msg: WorkerResponse) => postMessage(msg);
-const enqueue = createQueue(reply);
+const queue = createQueue(reply);
 
 let tts: Promise<TextToAudioPipeline> | null = null;
 /** Estilos ya descargados: cada voz se pide a la red una sola vez. */
@@ -74,9 +84,10 @@ function getStyle(style: string): Promise<Float32Array> {
   return promise;
 }
 
-onmessage = ({ data }: MessageEvent<WorkerRequest<SupertonicVoiceModel>>) => {
+onmessage = ({ data }: MessageEvent<WorkerMessage<SupertonicVoiceModel>>) => {
+  if (data.type === "cancel") return queue.cancel(data.id);
   const { id, text, voice } = data;
-  enqueue(id, async () => {
+  queue.add(id, async () => {
     activeId = id;
     const [synthesize, style] = await Promise.all([getTts(), getStyle(voice.style)]);
     // La etiqueta <es> indica el idioma: el mismo modelo habla 5 idiomas.

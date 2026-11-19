@@ -27,6 +27,15 @@ interface Options {
   next?: { text: string; go: () => void };
 }
 
+/**
+ * Cuántas frases se preparan por adelantado mientras suena la actual.
+ * Con UNA sola, si a una frase corta le sigue una larga no da tiempo a
+ * generarla y hay silencio (medido: hasta 16 s con Piper en un portátil de 2
+ * núcleos). Con varias, el motor no para nunca y esas diferencias se compensan.
+ * Más no ayuda: solo gasta memoria y trabajo que se tira si el usuario salta.
+ */
+const PREFETCH_AHEAD = 3;
+
 /** Clave de un audio en la caché: la misma frase con otra voz es otro audio. */
 const clipKey = (voice: Voice, segment: Segment) => `${voice.id}|${segment.text}`;
 
@@ -36,7 +45,7 @@ const clipKey = (voice: Voice, segment: Segment) => `${voice.id}|${segment.text}
  * Flujo cuando `status === "playing"`:
  *   1. Pide al motor el audio de la frase actual (o lo saca de la caché).
  *   2. Lo carga en el <audio> y anota su clave en `loadedKey`.
- *   3. Mientras suena, precarga la frase siguiente → sin silencios entre frases.
+ *   3. Mientras suena, prepara las siguientes (Efecto 4) → sin silencios entre frases.
  *   4. Al terminar (`onEnded`) avanza a la siguiente frase (o página) y vuelve al paso 1.
  */
 export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
@@ -55,12 +64,14 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
   // Ideales para objetos "del mundo exterior" (elementos DOM, cachés).
   const audioRef = useRef<HTMLAudioElement>(null);
   const cacheRef = useRef<ClipCache>(null);
+  /** Frases que se están generando, con lo necesario para cancelarlas (ver Efecto 4). */
+  const inFlightRef = useRef(new Map<string, AbortController>());
 
   // useMemo: re-segmentar solo cuando cambia el texto, no en cada render
   // (por ejemplo, con cada evento de progreso de descarga).
   const segments = useMemo(() => segmentSentences(text), [text]);
   const nextText = next?.text;
-  const nextFirst = useMemo(() => (nextText === undefined ? undefined : segmentSentences(nextText)[0]), [nextText]);
+  const nextSegments = useMemo(() => (nextText === undefined ? [] : segmentSentences(nextText)), [nextText]);
 
   // ── ESTADO DERIVADO ─────────────────────────────────────────────────────────
   // Se calcula en cada render en vez de guardarse en un useState: guardarlo
@@ -72,7 +83,12 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
   const index = position.text === text ? Math.min(position.index, Math.max(segments.length - 1, 0)) : 0;
   const voice = getVoice(prefs.voiceId);
   const current = segments.at(index);
-  const upcoming = segments.at(index + 1) ?? nextFirst;
+  // Las frases que vienen detrás, aunque sean ya de la página siguiente.
+  // useMemo: así la lista solo cambia cuando cambian de verdad (dependencia del Efecto 4).
+  const upcoming = useMemo(
+    () => [...segments.slice(index + 1), ...nextSegments].slice(0, PREFETCH_AHEAD),
+    [segments, index, nextSegments],
+  );
   const isCurrentLoaded = current !== undefined && loadedKey === clipKey(voice, current);
   const buffering = status === "playing" && !isCurrentLoaded;
 
@@ -88,8 +104,10 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
     const cache = new ClipCache();
     const audio = audioRef.current;
     cacheRef.current = cache;
+    const inFlight = inFlightRef.current;
     return () => {
       audio?.pause();
+      inFlight.forEach((controller) => controller.abort()); // nadie va a oír esas frases
       setStatus((s) => (s === "playing" ? "paused" : s));
       setLoadedKey(null); // sus audios se liberan aquí abajo: habrá que volver a cargarlos
       cache.clear();
@@ -122,31 +140,60 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
     setStatus("stopped");
   });
 
-  // ── Efecto 4: la máquina de reproducción (voces que generan audio) ─────────
+  /**
+   * El audio de una frase: de la caché o, si no está, pidiéndoselo al motor.
+   * Cada petición nueva guarda su AbortController para poder cancelarla. Es un
+   * `useEffectEvent` porque solo lo usan los efectos y así no es una dependencia más.
+   */
+  const load = useEffectEvent((segment: Segment) => {
+    // Nunca ocurre (los efectos no lo llaman con voces de Edge, ver Efecto 6),
+    // pero así TypeScript sabe que aquí la voz siempre genera audio.
+    if (voice.engine === "edge") return Promise.reject(new Error("Las voces de Edge no generan audio"));
+    const key = clipKey(voice, segment);
+    return cacheRef.current!.get(key, () => {
+      const controller = new AbortController();
+      const inFlight = inFlightRef.current;
+      inFlight.set(key, controller);
+      return engine
+        .synthesize(segment.text, voice, { onProgress: setDownload, signal: controller.signal })
+        .finally(() => {
+          if (inFlight.get(key) === controller) inFlight.delete(key);
+        });
+    });
+  });
+
+  // ── Efecto 4: preparar los audios por adelantado ───────────────────────────
+  // - En reposo, la frase actual: la primera vez obliga a cargar el modelo
+  //   (decenas de segundos), mejor empezar mientras el usuario mira la página
+  //   que cuando pulse ▶.
+  // - Reproduciendo, la actual y las PREFETCH_AHEAD siguientes, en orden (la
+  //   cola del Worker las genera en ese orden). Lo que ya no está en esa lista
+  //   (el usuario saltó de frase o cambió de voz) se CANCELA: si no, el motor
+  //   seguiría generando frases que nadie va a oír antes de la que hace falta.
+  // Los fallos no se tratan aquí: la caché los olvida, y si la frase hace
+  // falta, el Efecto 5 volverá a pedirla y mostrará el error.
   useEffect(() => {
-    const audio = audioRef.current;
-    const cache = cacheRef.current;
-    if (!audio || !cache || !current) return; // !current: página sin texto (p. ej. una ilustración)
-    // Las voces de Edge las reproduce el navegador (Efecto 5): el <audio> se calla.
-    if (voice.engine === "edge") {
-      audio.pause();
-      return;
-    }
-
-    const load = (segment: Segment) =>
-      cache.get(clipKey(voice, segment), () => engine.synthesize(segment.text, voice, setDownload));
-
+    if (!cacheRef.current || !current || voice.engine === "edge") return;
     if (status !== "playing") {
-      audio.pause();
-      // PRECARGA EN REPOSO: aunque no se esté reproduciendo, generamos ya la
-      // frase actual. La primera vez esto obliga a cargar el modelo (decenas de
-      // segundos), así que mejor empezar mientras el usuario mira la página que
-      // cuando pulse ▶. Solo la deja en la caché: no toca el <audio>.
-      // Si falla, no pasa nada: la caché olvida el fallo y se reintenta al pulsar ▶.
       load(current).then(
         () => setDownload(null),
         () => setDownload(null),
       );
+      return;
+    }
+    const wanted = [current, ...upcoming];
+    const keys = new Set(wanted.map((segment) => clipKey(voice, segment)));
+    for (const [key, controller] of inFlightRef.current) if (!keys.has(key)) controller.abort();
+    for (const segment of wanted) load(segment).catch(() => {});
+  }, [status, current, upcoming, voice]);
+
+  // ── Efecto 5: reproducir (voces que generan audio) ─────────────────────────
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !current) return; // !current: página sin texto (p. ej. una ilustración)
+    // En pausa, o con una voz de Edge (la reproduce el navegador, Efecto 6), el <audio> se calla.
+    if (status !== "playing" || voice.engine === "edge") {
+      audio.pause();
       return;
     }
 
@@ -177,15 +224,10 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
       },
     );
 
-    // Precarga: la siguiente frase (o la primera de la página siguiente) se
-    // sintetiza mientras suena esta. No hace falta `.catch`: la caché ya
-    // gestiona el fallo, y si se usa luego el error saldrá por la llamada de arriba.
-    if (upcoming) void load(upcoming);
-
     return () => {
       cancelled = true;
     };
-  }, [status, current, upcoming, voice, isCurrentLoaded, engine]);
+  }, [status, current, voice, isCurrentLoaded]);
 
   // ── Acciones ───────────────────────────────────────────────────────────────
   const setIndex = (i: number) => setPosition({ text, index: i });
@@ -218,8 +260,8 @@ export function useTtsPlayer({ text, engine, startIndex = 0, next }: Options) {
     else stop();
   };
 
-  // ── Efecto 5: voces de Edge (las reproduce el navegador, no el <audio>) ────
-  // Mismo ciclo que el Efecto 4, pero sin audio que guardar: se le da la frase
+  // ── Efecto 6: voces de Edge (las reproduce el navegador, no el <audio>) ────
+  // Mismo ciclo que el Efecto 5, pero sin audio que guardar: se le da la frase
   // a `speechSynthesis` y, cuando termina, se pasa a la siguiente. Pausar corta
   // la frase (la limpieza la cancela) y reanudar la empieza de nuevo: la
   // pausa nativa de estas voces no es fiable. Cambiar velocidad o volumen

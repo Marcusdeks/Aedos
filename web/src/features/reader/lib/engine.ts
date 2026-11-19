@@ -13,7 +13,17 @@
  */
 export interface TtsEngine {
   /** Genera el audio (WAV o MP3) de un texto corto, normalmente una frase. */
-  synthesize(text: string, voice: ClipVoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob>;
+  synthesize(text: string, voice: ClipVoiceModel, options?: SynthesizeOptions): Promise<Blob>;
+}
+
+export interface SynthesizeOptions {
+  /** Progreso de descarga del modelo (solo la primera vez). */
+  onProgress?: (p: DownloadProgress) => void;
+  /**
+   * Para cancelar una frase que ya no hace falta (salto de frase, cambio de
+   * voz). Es la forma estándar de cancelar en la web: la misma que usa `fetch`.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -29,7 +39,7 @@ export type VoiceModel = ClipVoiceModel | EdgeVoiceModel;
 export type ClipVoiceModel = LocalVoiceModel | AzureVoiceModel;
 
 /** Voces que se ejecutan en el propio equipo (modelos en Web Workers). */
-export type LocalVoiceModel = SupertonicVoiceModel | KokoroVoiceModel | PiperVoiceModel;
+export type LocalVoiceModel = SupertonicVoiceModel | PiperVoiceModel;
 
 /** Supertonic: un único modelo para todas las voces; cada voz es un "estilo" (F1…F5, M1…M5). */
 export interface SupertonicVoiceModel {
@@ -44,12 +54,6 @@ export interface PiperVoiceModel {
   model: string;
   /** Índice del hablante dentro del modelo (0 si el modelo solo tiene uno). */
   speaker: number;
-}
-
-/** Kokoro: un único modelo; cada voz es un fichero de estilo ("ef_dora", "em_alex"...). */
-export interface KokoroVoiceModel {
-  engine: "kokoro";
-  voice: string;
 }
 
 /** Azure AI Speech (nube de Microsoft, con la clave del propio usuario). */

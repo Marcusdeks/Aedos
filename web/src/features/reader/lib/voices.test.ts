@@ -12,8 +12,6 @@ describe("catálogo de voces", () => {
       // Piper y Azure: el código de idioma va en el nombre del modelo o de la voz.
       if (v.engine === "piper") expect(v.model).toMatch(/^es_ES-/);
       if (v.engine === "azure") expect(v.voiceName).toMatch(/^es-ES-/);
-      // Kokoro: "e" = español, "f"/"m" = mujer/hombre.
-      if (v.engine === "kokoro") expect(v.voice).toMatch(/^e[fm]_/);
     }
     // Supertonic: solo F5 y M5 suenan peninsulares; el resto está prohibido.
     const styles = VOICES.flatMap((v) => (v.engine === "supertonic" ? [v.style] : []));
@@ -23,7 +21,7 @@ describe("catálogo de voces", () => {
   });
 
   it("tiene voces de mujer y de hombre en cada motor", () => {
-    for (const engine of ["supertonic", "kokoro", "piper", "edge", "azure"] as const) {
+    for (const engine of ["supertonic", "piper", "edge", "azure"] as const) {
       const genders = new Set(VOICES.filter((v) => v.engine === engine).map((v) => v.gender));
       expect(genders).toEqual(new Set(["female", "male"]));
     }
@@ -32,7 +30,7 @@ describe("catálogo de voces", () => {
   it("la voz por defecto existe y es local (no envía el texto fuera)", () => {
     const voice = getVoice(DEFAULT_VOICE);
     expect(voice.id).toBe(DEFAULT_VOICE);
-    expect(["supertonic", "kokoro", "piper"]).toContain(voice.engine);
+    expect(["supertonic", "piper"]).toContain(voice.engine);
   });
 
   it("isVoiceId reconoce solo voces del catálogo", () => {

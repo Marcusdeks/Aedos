@@ -11,12 +11,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "postinstall": "patch-package"
+    "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@diffusionstudio/piper-wasm": "1.0.0",
     "@huggingface/transformers": "4.3.2",
-    "@mintplex-labs/piper-tts-web": "1.0.5",
     "idb": "8.0.4",
     "next": "16.4.6",
     "onnxruntime-web": "1.31.1",
@@ -31,7 +30,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
-    "patch-package": "8.0.1",
     "prettier": "3.9.10",
     "prettier-plugin-tailwindcss": "0.8.1",
     "tailwindcss": "4.3.3",

@@ -1,10 +1,10 @@
-import type { ClipVoiceModel, DownloadProgress, TtsEngine } from "../lib/engine";
+import type { ClipVoiceModel, SynthesizeOptions, TtsEngine } from "../lib/engine";
 import { AzureTtsEngine } from "./azure-engine";
 import { WasmTtsEngine } from "./wasm-engine";
 
 /**
  * Motor de la versión web: decide QUIÉN genera cada frase según la voz.
- *   - Voces locales (Supertonic, Kokoro, Piper) → modelos en Web Workers.
+ *   - Voces locales (Supertonic, Piper) → modelos en Web Workers.
  *   - Voces de Azure → la nube de Microsoft, con la clave del usuario.
  * (Las de Edge no pasan por aquí: no producen audio que podamos guardar; las
  * reproduce el propio navegador, ver edge-speech.ts.)
@@ -16,9 +16,9 @@ export class WebTtsEngine implements TtsEngine {
   readonly #local = new WasmTtsEngine();
   readonly #azure = new AzureTtsEngine();
 
-  synthesize(text: string, voice: ClipVoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob> {
+  synthesize(text: string, voice: ClipVoiceModel, options?: SynthesizeOptions): Promise<Blob> {
     return voice.engine === "azure"
-      ? this.#azure.synthesize(text, voice)
-      : this.#local.synthesize(text, voice, onProgress);
+      ? this.#azure.synthesize(text, voice, options?.signal)
+      : this.#local.synthesize(text, voice, options);
   }
 }

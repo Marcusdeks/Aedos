@@ -15,7 +15,7 @@ import type { AzureVoiceModel } from "../lib/engine";
 export class AzureTtsEngine {
   #token: { value: string; expires: number; for: AzureCredentials } | null = null;
 
-  async synthesize(text: string, voice: AzureVoiceModel): Promise<Blob> {
+  async synthesize(text: string, voice: AzureVoiceModel, signal?: AbortSignal): Promise<Blob> {
     const credentials = loadAzureCredentials();
     if (!credentials) throw new Error("Falta tu clave de Azure: pulsa «Configurar Azure».");
 
@@ -28,6 +28,7 @@ export class AzureTtsEngine {
         "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
       },
       buildSsml(text, voice.voiceName),
+      signal,
     );
     if (res.status === 401) this.#token = null; // token caducado o revocado: el siguiente intento pide otro
     if (!res.ok) throw new Error(describeError(res.status));
@@ -56,7 +57,12 @@ export class AzureTtsEngine {
 }
 
 /** POST sin cookies ni "referrer": a Microsoft solo le llega lo imprescindible. */
-async function request(url: string, headers: Record<string, string>, body?: string): Promise<Response> {
+async function request(
+  url: string,
+  headers: Record<string, string>,
+  body?: string,
+  signal?: AbortSignal,
+): Promise<Response> {
   try {
     return await fetch(url, {
       method: "POST",
@@ -65,8 +71,10 @@ async function request(url: string, headers: Record<string, string>, body?: stri
       credentials: "omit",
       referrerPolicy: "no-referrer",
       cache: "no-store",
+      signal,
     });
-  } catch {
+  } catch (err) {
+    if (signal?.aborted) throw err; // cancelada a propósito: no es un fallo de conexión
     throw new Error("No se pudo conectar con Azure. Revisa tu conexión y la región.");
   }
 }

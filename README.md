@@ -1,6 +1,6 @@
 # Aedos
 
-Lector de libros y textos con voces neuronales naturales, gratuito y privado. Sube un PDF o pega un texto y escúchalo en voz alta. Por defecto la voz se genera **en el propio dispositivo** con modelos neuronales ([Supertonic 2](https://huggingface.co/Supertone/supertonic-2), [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) y [Piper](https://github.com/rhasspy/piper)): sin servidores, sin cuotas y sin enviar tu texto a nadie. Opcionalmente, voces en la nube de Microsoft (Edge o tu propia cuenta de Azure).
+Lector de libros y textos con voces neuronales naturales, gratuito y privado. Sube un PDF o pega un texto y escúchalo en voz alta. Por defecto la voz se genera **en el propio dispositivo** con modelos neuronales ([Supertonic 2](https://huggingface.co/Supertone/supertonic-2) y [Piper](https://github.com/rhasspy/piper)): sin servidores, sin cuotas y sin enviar tu texto a nadie. Opcionalmente, voces en la nube de Microsoft (Edge o tu propia cuenta de Azure).
 
 > 🚧 Proyecto en desarrollo activo.
 
@@ -10,8 +10,8 @@ Lector de libros y textos con voces neuronales naturales, gratuito y privado. Su
 - 🔖 **Guarda por dónde vas**: página y frase exactas, también la voz, la velocidad y el volumen.
 - 🧭 Navegación por páginas y por **capítulos** (leídos del índice del PDF).
 - 🖼️ **Miniaturas del PDF** junto al texto: se ve en qué página estás y se salta a otra con un clic.
-- 🗣️ 30 voces de España, de mujer y de hombre:
-  - **En tu equipo**: 2 de Supertonic 2 (las más naturales), 3 de Kokoro y 5 más ligeras de Piper.
+- 🗣️ 27 voces de España, de mujer y de hombre:
+  - **En tu equipo**: 2 de Supertonic 2 (las más naturales) y 5 más ligeras de Piper.
   - **En la nube** (avisando de que el texto se envía a Microsoft): 2 de Microsoft Edge (solo en ese navegador) y 18 de Azure AI Speech con la clave del propio usuario.
 - 🚀 Usa la tarjeta gráfica (WebGPU) cuando está disponible, o todos los núcleos de la CPU si no.
 - 💾 El modelo de voz se descarga una sola vez y queda cargado al pasar de un libro a otro.
@@ -26,7 +26,7 @@ Lector de libros y textos con voces neuronales naturales, gratuito y privado. Su
 | Parte                        | Tecnología                                                                                                                                     |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Web                          | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4                                                                               |
-| Síntesis de voz (web)        | Supertonic 2 y Kokoro (Transformers.js, WebGPU/WASM) y Piper (WASM), cada uno en su Web Worker; Web Speech API (Edge); REST de Azure AI Speech |
+| Síntesis de voz (web)        | Supertonic 2 (Transformers.js, WebGPU/WASM) y Piper (ONNX Runtime + espeak-ng, WASM), cada uno en su Web Worker; Web Speech API (Edge); REST de Azure AI Speech |
 | PDF                          | pdf.js (Mozilla), con su propio Worker                                                                                                         |
 | Almacenamiento               | IndexedDB (librería `idb`) para libros; OPFS para los modelos de voz                                                                           |
 | Calidad                      | Vitest (tests unitarios) · ESLint · Prettier · GitHub Actions (CI)                                                                             |
@@ -49,7 +49,7 @@ web/src/
 
 El reproductor depende de una interfaz (`TtsEngine`), no de una implementación concreta. La web usa modelos en WebAssembly/WebGPU (un Worker por modelo, creado solo cuando se usa) y la app de escritorio usará Piper nativo desde Go, **reutilizando la misma lógica de reproducción**.
 
-La librería de Piper para web lleva un pequeño parche (`web/patches/`, aplicado con `patch-package`) que permite elegir el hablante de los modelos con varias voces y expone su fonetizador (espeak-ng), que también usa Kokoro para leer en español de España.
+Piper se ejecuta con un Worker propio (fonetizador espeak-ng en WebAssembly + ONNX Runtime) en vez de con una librería: el fonetizador se crea una sola vez y se usan tantos hilos como núcleos reales. Mientras suena una frase se preparan las 3 siguientes, y las que dejan de hacer falta (salto de frase, cambio de voz) se cancelan.
 
 El modelo de Supertonic se guarda en OPFS (el sistema de ficheros privado del navegador) en vez de en la Cache API, que en Brave falla al guardar y obligaba a descargar 250 MB en cada visita. La web se sirve con aislamiento de origen (cabeceras COOP/COEP) para que ONNX Runtime pueda usar varios hilos.
 
@@ -87,5 +87,4 @@ En cada push, [GitHub Actions](.github/workflows/ci.yml) comprueba formato, tipo
 ## Créditos
 
 - [Supertonic 2](https://huggingface.co/Supertone/supertonic-2) (Supertone), licencia OpenRAIL-M, ejecutado con [Transformers.js](https://github.com/huggingface/transformers.js).
-- [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) (hexgrad), licencia Apache 2.0, versión ONNX de [onnx-community](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX).
-- [Piper](https://github.com/rhasspy/piper) (Rhasspy). Cada modelo de voz tiene su propia licencia; consúltala en su ficha de [HuggingFace](https://huggingface.co/rhasspy/piper-voices).
+- [Piper](https://github.com/rhasspy/piper) (Rhasspy), con su fonetizador para navegador [piper-wasm](https://github.com/diffusion-studio/piper-wasm) (MIT). Cada modelo de voz tiene su propia licencia; consúltala en su ficha de [HuggingFace](https://huggingface.co/rhasspy/piper-voices).

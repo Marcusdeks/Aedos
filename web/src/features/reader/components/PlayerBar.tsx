@@ -6,6 +6,13 @@ import { AzureSettings } from "./AzureSettings";
 
 const ENGINES = Object.keys(ENGINE_LABEL) as Voice["engine"][];
 
+/** Primera voz de un tipo: la que se elige al cambiar de tipo. */
+const firstVoiceOf = (engine: Voice["engine"]): VoiceId => VOICES.find((v) => v.engine === engine)!.id;
+
+// Ancho fijo: si no, cada <select> mide lo que su opción más larga y empuja
+// velocidad y volumen a otra fila.
+const SELECT_CLASS = "w-40 min-w-0 rounded-xl border border-white/10 bg-stone-900 px-3 py-2";
+
 /**
  * Aviso bajo los controles para las voces en la nube: el usuario tiene que
  * saber que, con ellas, el texto del libro sale de su equipo.
@@ -84,26 +91,34 @@ export function PlayerBar({ player, progress }: Props) {
         <StatusText player={player} />
 
         <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-2">
+          {/*
+            Dos desplegables en cascada: primero el TIPO de voz y luego la voz.
+            Con uno solo, las 18 de Azure ocupaban toda la lista. El tipo no
+            se guarda en ningún estado: se deduce de la voz elegida.
+          */}
+          <label className="flex min-w-0 items-center gap-2 text-sm">
+            <span className="text-stone-400">Tipo</span>
+            <select
+              value={voice.engine}
+              // Al cambiar de tipo se elige su primera voz. El valor llega como
+              // string: lo estrechamos, seguro porque las opciones salen de ENGINES.
+              onChange={(e) => setVoiceId(firstVoiceOf(e.target.value as Voice["engine"]))}
+              className={SELECT_CLASS}
+            >
+              {ENGINES.map((engine) => (
+                <option key={engine} value={engine}>
+                  {ENGINE_LABEL[engine]}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="flex min-w-0 items-center gap-2 text-sm">
             <span className="text-stone-400">Voz</span>
-            <select
-              value={voiceId}
-              // El valor de un <select> llega como string: lo estrechamos a VoiceId,
-              // seguro porque las <option> salen del mismo catálogo.
-              onChange={(e) => setVoiceId(e.target.value as VoiceId)}
-              // Ancho fijo: si no, el <select> mide lo que su opción más larga
-              // y empuja velocidad y volumen a otra fila.
-              className="w-44 min-w-0 rounded-xl border border-white/10 bg-stone-900 px-3 py-2"
-            >
-              {/* <optgroup> agrupa las voces por familia (modelo) dentro del desplegable. */}
-              {ENGINES.map((engine) => (
-                <optgroup key={engine} label={ENGINE_LABEL[engine]}>
-                  {VOICES.filter((v) => v.engine === engine).map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {voiceLabel(v)}
-                    </option>
-                  ))}
-                </optgroup>
+            <select value={voiceId} onChange={(e) => setVoiceId(e.target.value as VoiceId)} className={SELECT_CLASS}>
+              {VOICES.filter((v) => v.engine === voice.engine).map((v) => (
+                <option key={v.id} value={v.id}>
+                  {voiceLabel(v)}
+                </option>
               ))}
             </select>
           </label>

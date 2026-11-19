@@ -1,5 +1,5 @@
-import type { DownloadProgress, LocalVoiceModel } from "../lib/engine";
-import type { WorkerRequest, WorkerResponse } from "./protocol";
+import type { DownloadProgress, LocalVoiceModel, SynthesizeOptions } from "../lib/engine";
+import type { WorkerMessage, WorkerResponse } from "./protocol";
 
 interface PendingRequest {
   resolve: (audio: Blob) => void;
@@ -15,7 +15,6 @@ interface PendingRequest {
  */
 const WORKER_FACTORIES: Record<LocalVoiceModel["engine"], () => Worker> = {
   supertonic: () => new Worker(new URL("./supertonic.worker.ts", import.meta.url), { type: "module" }),
-  kokoro: () => new Worker(new URL("./kokoro.worker.ts", import.meta.url), { type: "module" }),
   piper: () => new Worker(new URL("./piper.worker.ts", import.meta.url), { type: "module" }),
 };
 
@@ -25,7 +24,7 @@ const WORKER_FACTORIES: Record<LocalVoiceModel["engine"], () => Worker> = {
  * - Convierte la comunicación por mensajes del Worker (asíncrona, sin respuesta
  *   directa) en una API de promesas: `await engine.synthesize(...)`. Este patrón
  *   se llama RPC (Remote Procedure Call) sobre mensajes.
- * - Enruta cada petición al Worker de su modelo (Supertonic, Kokoro o Piper) y lo crea
+ * - Enruta cada petición al Worker de su modelo (Supertonic o Piper) y lo crea
  *   de forma PEREZOSA: si nunca eliges una voz de Piper, nunca se descarga ni
  *   se ejecuta nada de Piper.
  * - Mientras no cambies de motor, el Worker no se cierra: el modelo queda
@@ -38,14 +37,26 @@ export class WasmTtsEngine {
   readonly #pending = new Map<number, PendingRequest>();
   #nextId = 0;
 
-  synthesize(text: string, voice: LocalVoiceModel, onProgress?: (p: DownloadProgress) => void): Promise<Blob> {
+  synthesize(text: string, voice: LocalVoiceModel, { onProgress, signal }: SynthesizeOptions = {}): Promise<Blob> {
     // Primero el Worker: si hay que cambiar de modelo, se cancelan las
     // peticiones pendientes del anterior, y esta no debe estar entre ellas.
     const worker = this.#worker(voice.engine);
     const id = this.#nextId++;
     return new Promise((resolve, reject) => {
+      if (signal?.aborted) return reject(signal.reason);
       this.#pending.set(id, { resolve, reject, onProgress });
-      worker.postMessage({ id, text, voice } satisfies WorkerRequest);
+      worker.postMessage({ type: "synthesize", id, text, voice } satisfies WorkerMessage);
+      // Cancelar: el Worker se salta la frase si aún no la empezó, y la
+      // promesa se rechaza ya (quien la pidió no tiene que esperar).
+      signal?.addEventListener(
+        "abort",
+        () => {
+          if (!this.#pending.delete(id)) return; // ya había terminado
+          worker.postMessage({ type: "cancel", id } satisfies WorkerMessage);
+          reject(signal.reason);
+        },
+        { once: true },
+      );
     });
   }
 
